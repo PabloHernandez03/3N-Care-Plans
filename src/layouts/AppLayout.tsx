@@ -1,5 +1,4 @@
 import { Outlet } from 'react-router-dom';
-// import Logo from '@/components/Logo';
 import NavMenu from '@/components/shared/NavMenu';
 
 export default function AppLayout() {
