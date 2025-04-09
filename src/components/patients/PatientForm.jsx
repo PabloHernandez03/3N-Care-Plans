@@ -1,29 +1,19 @@
 import React, { useState } from 'react';
 import Button from '@/components/shared/Button';
 
-interface PatientFormProps {
-    onCancel: () => void;
-}
-
-interface PatientFormData {
-    name: string;
-    age: string;
-    condition: string;
-}
-
-const PatientForm: React.FC<PatientFormProps> = ({ onCancel }) => {
-    const [formData, setFormData] = useState<PatientFormData>({
+const PatientForm = ({ onCancel }) => {
+    const [formData, setFormData] = useState({
         name: '',
         age: '',
         condition: '',
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         console.log('Datos del paciente:', formData);
         // Aquí podrías enviar los datos a una API
