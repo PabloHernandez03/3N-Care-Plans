@@ -11,6 +11,12 @@ const CarePlanForm = ({ onCancel }) => {
         frequency: 'diario',
     });
 
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
@@ -56,8 +62,49 @@ const CarePlanForm = ({ onCancel }) => {
         onCancel();
     };
 
+    function updateGlasgowTotal() {
+        const eye = parseInt(document.querySelector('[name="glasgowEye"]').value || 0);
+        const verbal = parseInt(document.querySelector('[name="glasgowVerbal"]').value || 0);
+        const motor = parseInt(document.querySelector('[name="glasgowMotor"]').value || 0);
+        const total = eye + verbal + motor;
+        let level = "";
+        if( total <= 8) {
+            level = "Grave";
+            document.getElementById("glasgowTotal").style.color = "red";
+        } else if (total <= 12) {
+            level = "Moderado";
+            document.getElementById("glasgowTotal").style.color = "orange";
+        } else {
+            level = "Leve"
+            document.getElementById("glasgowTotal").style.color = "green";
+        }
+        document.getElementById("glasgowTotal").textContent = total + " (" + level + ")";
+    }
+
+    function updateMorseTotal(){
+        const history = parseInt(document.querySelector('[name="morseHistory"]').value || 0);
+        const diagnosis = parseInt(document.querySelector('[name="morseDiagnosis"]').value || 0);
+        const ambulation = parseInt(document.querySelector('[name="morseAmbulation"]').value || 0);
+        const iv = parseInt(document.querySelector('[name="morseIV"]').value || 0);
+        const gait = parseInt(document.querySelector('[name="morseGait"]').value || 0);
+        const consciousness = parseInt(document.querySelector('[name="morseConsciousness"]').value || 0);
+        const total = history + diagnosis + ambulation + iv + gait + consciousness;
+        let level = "";
+        if( total <= 24) {
+            level = "Bajo";
+            document.getElementById("morseTotal").style.color = "green";
+        } else if (total <= 44) {
+            level = "Moderado";
+            document.getElementById("morseTotal").style.color = "orange";
+        } else {
+            level = "Alto"
+            document.getElementById("morseTotal").style.color = "red";
+        }
+        document.getElementById("morseTotal").textContent = total + " (" + level + ")";
+    }
+
     return (
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <h2 className="col-span-5 text-xl font-bold text-gray-700">Información del Paciente</h2>
             <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-2 md:row-span-3 flex flex-col items-center">
                 <div className="w-32 h-32 bg-gray-200 rounded-full flex items-center justify-center mb-4">
@@ -198,7 +245,8 @@ const CarePlanForm = ({ onCancel }) => {
                     required
                 />
             </div>
-
+            
+            { /* ANTECEDENTES PERSONALES Y DATOS RELEVANTES */ }
             <h2 className="col-span-5 text-xl font-bold text-gray-700">Antecedentes personales y datos relevantes</h2>
             <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 text-sm">
                 <label className="block font-medium text-gray-700 mb-4">Patológicos</label>
@@ -370,6 +418,322 @@ const CarePlanForm = ({ onCancel }) => {
                         <span className="ml-2">Red de cuidados insuficiente o inexistente</span>
                     </label>
                 </div>
+            </div>
+
+            {/* VALORACIÓN DE ENFERMERÍA */}
+            <h2 className="col-span-5 text-xl font-bold text-gray-700">Valoración de enfermería</h2>
+            {/* Valoración por sistemas corporales */}
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Valoración por sistemas corporales</h3>
+                <ul className="grid grid-cols-4 items-start">
+                    {[
+                        { name: "Neurológico", tooltip: "¿Qué evalúa este sistema? Evalúa el estado mental, reflejos, sensibilidad, etc." },
+                        { name: "Respiratorio", tooltip: "¿Qué evalúa este sistema? Evalúa la respiración, sonidos pulmonares, etc." },
+                        { name: "Cardiovascular", tooltip: "¿Qué evalúa este sistema? Evalúa el ritmo cardíaco, pulsos, etc." },
+                        { name: "Digestivo", tooltip: "¿Qué evalúa este sistema? Evalúa el abdomen, digestión, etc." },
+                        { name: "Genitourinario", tooltip: "¿Qué evalúa este sistema? Evalúa la micción, genitales, etc." },
+                        { name: "Tegumentario (piel)", tooltip: "¿Qué evalúa este sistema? Evalúa la piel, heridas, etc." },
+                        { name: "Musculoesquelético", tooltip: "¿Qué evalúa este sistema? Evalúa los músculos, articulaciones, etc." },
+                        { name: "Endocrino", tooltip: "¿Qué evalúa este sistema? Evalúa las glándulas, hormonas, etc." },
+                        { name: "Hematológico", tooltip: "¿Qué evalúa este sistema? Evalúa la sangre, coagulaciones, etc." },
+                        { name: "Inmunológico", tooltip: "¿Qué evalúa este sistema? Evalúa el sistema inmune, alergias, etc." },
+                    ].map((system, index) => (
+                        <li key={index} className="flex flex-col py-2">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id={`system-${index}`}
+                                    className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    onChange={(e) => {
+                                        const textarea = document.getElementById(`textarea-${index}`);
+                                        textarea.disabled = !e.target.checked;
+                                        textarea.value = "";
+                                        const details = document.getElementById(`system-${index}-details`);
+                                        details.style.display = e.target.checked ? "block" : "none";
+                                        if (e.target.checked) {
+                                            textarea.focus();
+                                        }
+                                    }}
+                                />
+                                <label htmlFor={`system-${index}`} className="text-gray-700 font-medium">{system.name}</label>
+                                <span className="text-gray-400 cursor-pointer" title={system.tooltip}>ℹ️</span>
+                            </div>
+                            <div id={`system-${index}-details`} className="flex flex-col space-y-2" style={{ display: "none" }}>
+                                <div className="ml-8 flex items-center space-x-4">
+                                    <label className="flex items-center space-x-2">
+                                        <input type="radio" name={`system-${index}-status`} value="normal" className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                        <span>Normal</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2">
+                                        <input type="radio" name={`system-${index}-status`} value="abnormal" className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                        <span>Anormal</span>
+                                    </label>
+                                </div>
+                                <textarea
+                                    id={`textarea-${index}`}
+                                    name={`system-${index}-details`}
+                                    placeholder="Detalle de hallazgos (si aplica)"
+                                    className="mt-2 w-11/12 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    rows="2"
+                                    disabled
+                                ></textarea>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+
+            {/* Escalas de valoración */}
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Escalas de valoración</h3>
+                <div className="space-y-6">
+                    {/* Dolor */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 items-center">
+                            Dolor (0–10)
+                            <span className="ml-2 text-gray-400 cursor-pointer" title="Evalúa la intensidad del dolor del paciente.">ℹ️</span>
+                        </label>
+                        <input
+                            type="range"
+                            name="painScale"
+                            min="0"
+                            max="10"
+                            defaultValue="5"
+                            className="mt-1 w-full"
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                e.target.style.background = `linear-gradient(to right, green ${value * 10}%, red ${value * 10}%)`;
+                                document.getElementById("painValue").textContent = value;
+                            }}
+                        />
+                        <div className="text-center mt-2 text-sm text-gray-600">Intensidad: <span id="painValue">5</span></div>
+                    </div>
+
+                    <hr></hr>
+
+                    {/* Morse */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 items-center">
+                            Caídas (Morse)
+                            <span className="ml-2 text-gray-400 cursor-pointer" title="Evalúa el riesgo de caídas del paciente.">ℹ️</span>
+                        </label>
+                        <div className="grid grid-cols-3 gap-4 mt-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Antecedentes de caídas</label>
+                                <select
+                                    name="morseHistory"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - No</option>
+                                    <option value="25">25 - Sí</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Diagnóstico secundario</label>
+                                <select
+                                    name="morseDiagnosis"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - No</option>
+                                    <option value="15">15 - Sí</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Ayuda para deambular</label>
+                                <select
+                                    name="morseAmbulation"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - Reposo en cama/Asistencia de enfermería</option>
+                                    <option value="15">15 - Bastón/Muletas/Andador</option>
+                                    <option value="30">30 - Se apoya en mueble</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Vía venosa</label>
+                                <select
+                                    name="morseIV"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - No</option>
+                                    <option value="20">20 - Sí</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Marcha</label>
+                                <select
+                                    name="morseGait"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - Normal/Inmovilizado/Reposo en cama</option>
+                                    <option value="15">15 - Débil</option>
+                                    <option value="30">30 - Alterada requiere asistencia</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Conciencia/Estado mental</label>
+                                <select
+                                    name="morseConsciousness"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateMorseTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="0">0 - Consiente de sus capacidades y limitación</option>
+                                    <option value="15">15 - No consiente de sus limitaciones</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="text-center mt-2 text-sm text-gray-600">
+                            Total: <span id="morseTotal"></span>
+                        </div>
+                    </div>
+
+                    <hr></hr>
+
+                    {/* Glasgow */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 items-center">
+                            Estado neurológico (Glasgow)
+                            <span className="ml-2 text-gray-400 cursor-pointer" title="Evalúa el nivel de conciencia del paciente.">ℹ️</span>
+                        </label>
+                        <div className="grid grid-cols-3 gap-4 mt-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Ocular</label>
+                                <select
+                                    name="glasgowEye"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateGlasgowTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="1">1 - No apertura</option>
+                                    <option value="2">2 - Apertura al dolor</option>
+                                    <option value="3">3 - Apertura a la voz</option>
+                                    <option value="4">4 - Apertura espontánea</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Verbal</label>
+                                <select
+                                    name="glasgowVerbal"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateGlasgowTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="1">1 - Ninguna</option>
+                                    <option value="2">2 - Sonidos incomprensibles</option>
+                                    <option value="3">3 - Palabras inapropiadas</option>
+                                    <option value="4">4 - Confuso</option>
+                                    <option value="5">5 - Orientado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Motora</label>
+                                <select
+                                    name="glasgowMotor"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    onChange={(e) => updateGlasgowTotal()}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Seleccione una opción</option>
+                                    <option value="1">1 - Ninguna</option>
+                                    <option value="2">2 - Extensión anormal</option>
+                                    <option value="3">3 - Flexión anormal</option>
+                                    <option value="4">4 - Retira al dolor</option>
+                                    <option value="5">5 - Localiza el dolor</option>
+                                    <option value="6">6 - Obedece órdenes</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="text-center mt-2 text-sm text-gray-600">
+                            Total: <span id="glasgowTotal" ></span>
+                        </div>
+                    </div>
+
+                    <hr></hr>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 items-center">
+                            Úlceras por presión (Braden)
+                            <span className="ml-2 text-gray-400 cursor-pointer" title="Evalúa el riesgo de desarrollar úlceras por presión.">ℹ️</span>
+                        </label>
+                        <table className="w-full mt-2 border-collapse border border-gray-300 text-sm">
+                            <thead>
+                                <tr>
+                                    <th className="border border-gray-300 p-2">Ítem</th>
+                                    <th className="border border-gray-300 p-2">Puntuación (1–4)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {["Percepción sensorial", "Humedad", "Actividad", "Movilidad", "Nutrición", "Fricción y deslizamiento"].map((item, index) => (
+                                    <tr key={index}>
+                                        <td className="border border-gray-300 p-2">{item}</td>
+                                        <td className="border border-gray-300 p-2">
+                                            <select
+                                                name={`braden-${index}`}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            >
+                                                {[1, 2, 3, 4].map((score) => (
+                                                    <option key={score} value={score}>{score}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div className="text-center mt-2 text-sm text-gray-600">Total: <span id="bradenTotal">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Somatometría</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <input type="number" name="weight" placeholder="Peso (kg)" className="border-gray-300 rounded-md" />
+                    <input type="number" name="height" placeholder="Talla (cm)" className="border-gray-300 rounded-md" />
+                    <input type="number" name="bmi" placeholder="IMC" className="border-gray-300 rounded-md" />
+                    <input type="number" name="headCircumference" placeholder="Perímetro cefálico" className="border-gray-300 rounded-md" />
+                    <input type="number" name="abdominalCircumference" placeholder="Perímetro abdominal" className="border-gray-300 rounded-md" />
+                </div>
+            </div>
+
+            {/* Exploración física */}
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Exploración física</h3>
+                <textarea
+                    name="physicalExam"
+                    placeholder="Describa el estado general, piel, cabeza y cuello, tórax, abdomen, extremidades, dispositivos, etc."
+                    className="w-full border-gray-300 rounded-md"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            {/* Estado emocional / cognitivo */}
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Estado emocional / cognitivo</h3>
+                <textarea
+                    name="emotionalState"
+                    placeholder="Describa el afecto, lenguaje, nivel de conciencia, orientación, memoria, juicio/percepción de realidad, etc."
+                    className="w-full border-gray-300 rounded-md"
+                    rows="4"
+                ></textarea>
             </div>
 
             <div className="flex justify-end gap-4 col-span-1 md:col-span-2">
