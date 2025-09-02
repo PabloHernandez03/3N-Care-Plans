@@ -4,7 +4,7 @@ export default function NavMenu() {
     return (
         <nav className="flex gap-5 text-white">
             <NavLink
-                to="/"
+                to="/dashboard"
                 className={({ isActive }) =>
                     `hover:text-[#FFD700] ${isActive ? 'text-[#FFD700]' : ''}`
                 }

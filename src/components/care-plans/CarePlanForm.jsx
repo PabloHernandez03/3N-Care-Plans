@@ -74,7 +74,7 @@ const CarePlanForm = ({ onCancel }) => {
         } else if (total <= 12) {
             level = "Moderado";
             document.getElementById("glasgowTotal").style.color = "orange";
-        } else {
+        } else{
             level = "Leve"
             document.getElementById("glasgowTotal").style.color = "green";
         }
@@ -101,6 +101,31 @@ const CarePlanForm = ({ onCancel }) => {
             document.getElementById("morseTotal").style.color = "red";
         }
         document.getElementById("morseTotal").textContent = total + " (" + level + ")";
+    }
+
+    function updateBradenTotal(){
+        const bradenPercepcionSensorial = parseInt(document.querySelector('[name="bradenPercepcionSensorial"]').value || 0);
+        const bradenHumedad = parseInt(document.querySelector('[name="bradenHumedad"]').value || 0);
+        const bradenActividad = parseInt(document.querySelector('[name="bradenActividad"]').value || 0);
+        const bradenMovilidad = parseInt(document.querySelector('[name="bradenMovilidad"]').value || 0);
+        const bradenNutricion = parseInt(document.querySelector('[name="bradenNutricion"]').value || 0);
+        const bradenFriccion = parseInt(document.querySelector('[name="bradenFriccion"]').value || 0);
+        const total = bradenPercepcionSensorial + bradenHumedad + bradenActividad + bradenMovilidad + bradenNutricion + bradenFriccion;
+        let level = "";
+        if( total >= 19) {
+            level = "Sin riesgo";
+            document.getElementById("bradenTotal").style.color = "green";
+        } else if (total >= 15) {
+            level = "Bajo";
+            document.getElementById("bradenTotal").style.color = "blue";
+        } else if (total < 15 && total >= 13) {
+            level = "Moderado";
+            document.getElementById("bradenTotal").style.color = "orange";
+        } else {
+            level = "Alto"
+            document.getElementById("bradenTotal").style.color = "red";
+        }
+        document.getElementById("bradenTotal").textContent = total + " (" + level + ")";
     }
 
     return (
@@ -669,6 +694,7 @@ const CarePlanForm = ({ onCancel }) => {
 
                     <hr></hr>
 
+                    {/* Braden */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 items-center">
                             Úlceras por presión (Braden)
@@ -677,32 +703,104 @@ const CarePlanForm = ({ onCancel }) => {
                         <table className="w-full mt-2 border-collapse border border-gray-300 text-sm">
                             <thead>
                                 <tr>
-                                    <th className="border border-gray-300 p-2">Ítem</th>
-                                    <th className="border border-gray-300 p-2">Puntuación (1–4)</th>
+                                    <th className="border border-gray-300 p-2">Parámetro</th>
+                                    <th className="border border-gray-300 p-2">Puntuación</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {["Percepción sensorial", "Humedad", "Actividad", "Movilidad", "Nutrición", "Fricción y deslizamiento"].map((item, index) => (
-                                    <tr key={index}>
-                                        <td className="border border-gray-300 p-2">{item}</td>
-                                        <td className="border border-gray-300 p-2">
-                                            <select
-                                                name={`braden-${index}`}
-                                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            >
-                                                {[1, 2, 3, 4].map((score) => (
-                                                    <option key={score} value={score}>{score}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-                                    </tr>
-                                ))}
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Percepción sensorial</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenPercepcionSensorial" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - Completamente limitado</option>
+                                            <option value="2">2 - Muy limitado</option>
+                                            <option value="3">3 - Ligeramente limitado</option>
+                                            <option value="4">4 - Sin déficit</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Humedad</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenHumedad" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - Constantemente húmedo</option>
+                                            <option value="2">2 - Muy húmedo</option>
+                                            <option value="3">3 - Ocasionalmente húmedo</option>
+                                            <option value="4">4 - Raramente húmedo</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Actividad</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenActividad" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - En cama</option>
+                                            <option value="2">2 - En silla</option>
+                                            <option value="3">3 - Deambula ocasionalmente</option>
+                                            <option value="4">4 - Deambula frecuentemente</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Movilidad</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenMovilidad" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - Completamente inmóvil</option>
+                                            <option value="2">2 - Muy limitado</option>
+                                            <option value="3">3 - Ligeramente limitado</option>
+                                            <option value="4">4 - Sin limitaciones</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Nutrición</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenNutricion" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - Muy pobre</option>
+                                            <option value="2">2 - Probablemente inadecuada</option>
+                                            <option value="3">3 - Adecuada</option>
+                                            <option value="4">4 - Excelente</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="border border-gray-300 p-2 font-medium">Fricción y deslizamiento</td>
+                                    <td className="border border-gray-300 p-2">
+                                        <select name="bradenFriccion" className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        onChange={(e) => updateBradenTotal()}
+                                        defaultValue="">
+                                            <option value="" disabled>Seleccione una opción</option>
+                                            <option value="1">1 - Problema significativo</option>
+                                            <option value="2">2 - Problema potencial</option>
+                                            <option value="3">3 - Sin problema aparente</option>
+                                        </select>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
-                        <div className="text-center mt-2 text-sm text-gray-600">Total: <span id="bradenTotal">0</span></div>
+                        <div className="text-center mt-2 text-sm text-gray-600">
+                            Total: <span id="bradenTotal" ></span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            
             <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">Somatometría</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -717,23 +815,132 @@ const CarePlanForm = ({ onCancel }) => {
             {/* Exploración física */}
             <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">Exploración física</h3>
-                <textarea
-                    name="physicalExam"
-                    placeholder="Describa el estado general, piel, cabeza y cuello, tórax, abdomen, extremidades, dispositivos, etc."
-                    className="w-full border-gray-300 rounded-md"
-                    rows="4"
-                ></textarea>
+                <div className="colg-span-2 grid grid-cols-3 gap-4">
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Estado general</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa el estado general"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Piel</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa la piel"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Cabeza y cuello</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa la cabeza y cuello"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Tórax</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa el tórax"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Abdomen</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa el abdomen"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Extremidades</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa las extremidades"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Dispositivos</label>
+                        <textarea
+                            name="physicalExam"
+                            placeholder="Describa los dispositivos"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                </div>
             </div>
 
             {/* Estado emocional / cognitivo */}
             <div className="bg-white p-6 rounded-lg shadow-lg col-span-5">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">Estado emocional / cognitivo</h3>
-                <textarea
-                    name="emotionalState"
-                    placeholder="Describa el afecto, lenguaje, nivel de conciencia, orientación, memoria, juicio/percepción de realidad, etc."
-                    className="w-full border-gray-300 rounded-md"
-                    rows="4"
-                ></textarea>
+                <div className="col-span-2 grid grid-cols-3 gap-4">
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Afecto</label>
+                        <textarea
+                            name="affect"
+                            placeholder="Describa el afecto"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Lenguaje</label>
+                        <textarea
+                            name="language"
+                            placeholder="Describa el lenguaje"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Nivel de conciencia</label>
+                        <textarea
+                            name="consciousnessLevel"
+                            placeholder="Describa el nivel de conciencia"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Orientación</label>
+                        <textarea
+                            name="orientation"
+                            placeholder="Describa la orientación"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Memoria</label>
+                        <textarea
+                            name="memory"
+                            placeholder="Describa la memoria"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className='block text-sm font-medium text-gray-700'>Juicio</label>
+                        <textarea
+                            name="judgment"
+                            placeholder="Describa el juicio"
+                            className="w-full border-gray-300 rounded-md"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                </div>
             </div>
 
             <div className="flex justify-end gap-4 col-span-1 md:col-span-2">
