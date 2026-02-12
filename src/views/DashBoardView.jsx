@@ -1,7 +1,13 @@
 import StatsCard from '../components/dashboard/StatsCard';
 import RecentPatients from '../components/dashboard/RecentPatients';
+import Chatbot from '../components/chatbot/Chatbot';
 
 export default function DashboardView() {
+    const handleSessionClose = (summary) => {
+        console.log('Sesión del chatbot cerrada. Resumen:', summary);
+        // Aquí puedes guardar el resumen o hacer algo con los datos
+    };
+
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-800">Panel de Control</h1>
@@ -18,6 +24,13 @@ export default function DashboardView() {
                 <h2 className="text-xl font-semibold mb-4">Pacientes Recientes</h2>
                 <RecentPatients />
             </div>
+
+            {/* Sistema Experto NIC-NOC */}
+            <Chatbot
+                processType="general_consultation"
+                onSessionClose={handleSessionClose}
+                useLocalFallback={true}
+            />
         </div>
     );
 }
