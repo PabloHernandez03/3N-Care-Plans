@@ -33,36 +33,34 @@ router.get("/:codigo", async (req, res) => {
 
 
 router.get("/from-nanda/:codigo", async (req, res) => {
-
   try {
-
-    const mapa = await Mapa.findOne({
-      nanda_codigo: req.params.codigo
-    });
-
+    const mapa = await Mapa.findOne({ nanda_codigo: req.params.codigo });
     if (!mapa) {
-      return res.status(404).json({
-        error: "NANDA no encontrado en mapa"
-      });
+      return res.status(404).json({ error: "NANDA no encontrado en mapa" });
     }
 
-    const noc = await Noc.find({
-      codigo: { $in: mapa.noc_sugeridos }
+    const codigosNoc = mapa.noc_sugeridos.map(n => n.codigo);
+    const nocsEncontrados = await Noc.find({ codigo: { $in: codigosNoc } });
+
+    const nocsConPorcentaje = nocsEncontrados.map(nocBD => {
+
+      const infoMapa = mapa.noc_sugeridos.find(n => n.codigo === nocBD.codigo);
+      return {
+        ...nocBD.toObject(),
+        coincidencia: infoMapa ? infoMapa.coincidencia : 0
+      };
     });
+
+    nocsConPorcentaje.sort((a, b) => b.coincidencia - a.coincidencia);
 
     res.json({
       nanda: mapa.nanda_nombre,
-      noc_sugeridos: noc
+      noc_sugeridos: nocsConPorcentaje
     });
 
   } catch (error) {
-
-    res.status(500).json({
-      error: "Error obteniendo NOC"
-    });
-
+    res.status(500).json({ error: "Error obteniendo NOC" });
   }
-
 });
 
 
