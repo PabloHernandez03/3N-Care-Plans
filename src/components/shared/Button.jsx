@@ -1,9 +1,9 @@
 import React from 'react';
 
 const Button = ({ children, onClick, variant = 'primary', type = 'button' }) => {
-    const baseStyles = 'px-4 py-2 rounded-full font-medium transition-colors';
+    const baseStyles = 'px-4 py-2 rounded-md font-medium transition-colors';
     const variantStyles = {
-        primary: 'bg-primario text-white hover:bg-primario-dark',
+        primary: 'bg-blue-600 text-white hover:bg-blue-700',
         secondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
     };
 
