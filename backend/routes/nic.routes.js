@@ -25,4 +25,19 @@ router.post("/list", async (req,res)=>{
 
 });
 
+router.get("/:codigo", async (req, res) => {
+  try {
+    const nic = await Nic.findOne({ codigo: req.params.codigo });
+    
+    if (!nic) {
+      return res.status(404).json({ error: "NIC no encontrado" });
+    }
+    
+    res.json(nic);
+  } catch (err) {
+    console.error("Error buscando el NIC:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 export default router;

@@ -91,4 +91,14 @@ router.post("/evaluate", async (req, res) => {
 
 });
 
+router.get("/:codigo", async (req, res) => {
+    try {
+        const noc = await Noc.findOne({ codigo: req.params.codigo });
+        if (!noc) return res.status(404).json({ error: "NOC no encontrado" });
+        res.json(noc);
+    } catch (error) {
+        res.status(500).json({ error: "Error al buscar el NOC" });
+    }
+});
+
 export default router;
