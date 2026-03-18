@@ -24,7 +24,7 @@ export default function NavMenu() {
 
     return (
         
-        <nav className="flex gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:p-4 max-lg:shadow-lg">
+        <nav className="flex gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:p-4 max-lg:shadow-lg z-10">
             <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
@@ -35,7 +35,7 @@ export default function NavMenu() {
                     transition-all duration-300
                     ${isActive
                         ? 'bg-primario text-white border-primario'
-                        : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'
+                        : 'bg-white/50 text-gray-500 hover:bg-white/70 hover:scale-105 hover:shadow-xl'
                     }`
                 }
                 title="Dashboard"
@@ -64,7 +64,7 @@ export default function NavMenu() {
                     transition-all duration-300
                     ${isActive
                         ? 'bg-primario text-white border-primario'
-                        : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'
+                        : 'bg-white/50 text-gray-500 hover:bg-white/70 hover:scale-105 hover:shadow-xl'
                     }`
                 }
                 title="Pacientes"
@@ -93,7 +93,7 @@ export default function NavMenu() {
                     transition-all duration-300
                     ${isActive
                         ? 'bg-primario text-white border-primario'
-                        : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'
+                        : 'bg-white/50 text-gray-500 hover:bg-white/70 hover:scale-105 hover:shadow-xl'
                     }`
                 }
                 title="Planes de Cuidado"
@@ -122,7 +122,7 @@ export default function NavMenu() {
                     transition-all duration-300
                     ${isActive
                         ? 'bg-primario text-white border-primario'
-                        : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'
+                        : 'bg-white/50 text-gray-500 hover:bg-white/70 hover:scale-105 hover:shadow-xl'
                     }`
                 }
                 title="Diccionario"
@@ -151,7 +151,7 @@ export default function NavMenu() {
                     transition-all duration-300
                     ${isActive
                         ? 'bg-primario text-white border-primario'
-                        : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'
+                        : 'bg-white/50 text-gray-500 hover:bg-white/70 hover:scale-105 hover:shadow-xl'
                     }`
                 }
                 title="Perfil"

@@ -6,6 +6,7 @@ const patientSchema = new mongoose.Schema({
   fechaNacimiento: { type: String, required: true },
   edad: { type: Number, required: true },
   sexo: { type: String, enum: ['M', 'F', 'N'], required: true },
+  sangre: { type: String, required: true },
   
   ingreso: {
     fecha: { type: String },
