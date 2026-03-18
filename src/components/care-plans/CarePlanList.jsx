@@ -148,13 +148,13 @@ export default function CarePlanList({ patientId }) {
                 <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
                     <button 
                         onClick={() => { setFilterStatus('Activo'); setExpandedPlanId(null); }}
-                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Activo' ? 'bg-white text-blue-700 shadow shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Activo' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         Planes Activos
                     </button>
                     <button 
                         onClick={() => { setFilterStatus('Finalizado'); setExpandedPlanId(null); }}
-                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Finalizado' ? 'bg-white text-gray-700 shadow shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Finalizado' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         Finalizados
                     </button>
@@ -194,7 +194,7 @@ export default function CarePlanList({ patientId }) {
                 <div key={plan._id} className={`border rounded-xl shadow-sm bg-white overflow-hidden transition-all ${filterStatus === 'Finalizado' ? 'border-gray-300 opacity-90' : 'border-blue-100'}`}>
                     
                     {/* ENCABEZADO DEL PLAN */}
-                    <div className={`p-5 ${filterStatus === 'Activo' ? 'bg-gradient-to-r from-blue-50 to-white' : 'bg-gray-50'}`}>
+                    <div className={`p-5 ${filterStatus === 'Activo' ? 'bg-gradient-to-b md:bg-gradient-to-r from-primario/10 to-white' : 'bg-gray-50'}`}>
                         <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
@@ -210,7 +210,7 @@ export default function CarePlanList({ patientId }) {
                                 
                                 {/* DETALLES DEL PACIENTE */}
                                 {!patientId && plan.pacienteId && (
-                                    <div className="flex flex-wrap items-center gap-4 text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex">
+                                    <div className="flex-wrap items-center gap-4 text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-gray-500">Paciente:</span>
                                             <span className="font-bold text-gray-800">{plan.pacienteId.nombre}</span>
@@ -244,9 +244,9 @@ export default function CarePlanList({ patientId }) {
                                 {filterStatus === 'Activo' && (
                                     <button 
                                         onClick={(e) => handleFinalizePlan(plan._id, e)}
-                                        className="w-full text-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg shadow-sm hover:bg-red-700 focus:outline-none transition-colors"
+                                        className="w-full text-center px-4 py-2 text-md font-medium text-white bg-secundario border border-transparent rounded-full shadow-sm hover:bg-secundario/80 focus:outline-none transition-colors"
                                     >
-                                        Finalizar Plan
+                                        Finalizar plan
                                     </button>
                                 )}
                             </div>
