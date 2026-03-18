@@ -10,6 +10,7 @@ import nicRoutes from "./routes/nic.routes.js";
 import diagnosisRoutes from "./routes/diagnosis.routes.js";
 import patientRoutes from "./routes/patient.routes.js";
 import carePlanRoutes from './routes/careplan.routes.js';
+import enfermeroRoutes from "./routes/enfermero.routes.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use("/api/nic", nicRoutes);
 app.use("/api/diagnosis", diagnosisRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/careplans', carePlanRoutes);
+app.use('/api/enfermero', enfermeroRoutes);
 
 app.listen(5000, () => {
   console.log("Servidor puerto 5000");
