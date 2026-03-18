@@ -4,7 +4,6 @@ import Login from '../views/LoginView.jsx';
 import DashboardView from '../views/DashBoardView.jsx';
 import PatientsView from '../views/PatientsView.jsx';
 import CarePlansView from '../views/CarePlansView.jsx';
-import DictionaryView from '../views/DictionaryView.jsx';
 import ProfileView from '../views/ProfileView.jsx';
 
 export default function Router() {
@@ -16,7 +15,6 @@ export default function Router() {
                     <Route path="/dashboard" element={<DashboardView />} />
                     <Route path="/patients" element={<PatientsView />} />
                     <Route path="/care-plans" element={<CarePlansView />} />
-                    <Route path="/dictionary" element={<DictionaryView />} />
                     <Route path="/profile" element={<ProfileView />} />
                 </Route>
             </Routes>

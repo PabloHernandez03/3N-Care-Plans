@@ -8,8 +8,8 @@ export default function AppLayout() {
                 <div className="max-w-screen-2xl lg:mx-auto flex flex-row justify-center lg:justify-end items-center">
                     {/* <div className="hidden lg:block w-32"> */}
                         {/* <Logo /> */}
-                    {/* </div> */}
-                    <NavMenu/>
+                    </div>
+                    <NavMenu />
                 </div>
             </header>
 

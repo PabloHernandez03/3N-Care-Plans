@@ -8,15 +8,13 @@ export default function PatientsView() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-800">Pacientes</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Gestión de Pacientes</h1>
 
-                {/* Botón para agregar paciente */}
-                <div>
-                    <Button onClick={() => setShowForm(!showForm)}>
-                        {showForm ? 'Cancelar' : 'Agregar Paciente'}
-                    </Button>
-                </div>
+            {/* Botón para agregar paciente */}
+            <div className="flex justify-end">
+                <Button onClick={() => setShowForm(!showForm)}>
+                    {showForm ? 'Cancelar' : 'Agregar Paciente'}
+                </Button>
             </div>
 
             {/* Formulario de paciente (condicional) */}
