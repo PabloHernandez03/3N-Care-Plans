@@ -27,8 +27,8 @@ export default function PatientsView() {
             )}
 
             {/* Listado de pacientes */}
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-semibold mb-4">Listado de Pacientes</h2>
+            <div>
+                {/* <h2 className="text-xl font-semibold mb-4">Listado de Pacientes</h2> */}
                 <PatientList />
             </div>
         </div>

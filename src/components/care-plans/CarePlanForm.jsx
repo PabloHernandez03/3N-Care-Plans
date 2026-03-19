@@ -5,6 +5,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
     const [patientList, setPatientList] = useState([]);
     const [selectedOption, setSelectedOption] = useState("");
     const [selectedSex, setSelectedSex] = useState("");
+    const [selectedBloodType, setSelectedBloodType] = useState("");
 
     // ESTADOS PARA BLOQUEOS CLÍNICOS
     const [noAllergies, setNoAllergies] = useState(false);
@@ -191,6 +192,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 document.getElementById("patientName").value = paciente.nombre || "";
                 document.getElementById("age").value = paciente.edad || "";
                 setSelectedSex(paciente.sexo || "");
+                setSelectedBloodType(paciente.sangre || "");
                 document.getElementById("patientBirthdate").value = paciente.fechaNacimiento || "";
                 document.getElementById("curp").value = paciente.curp || "";
                 document.getElementById("patientName").readOnly = true;
@@ -309,7 +311,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
             <div className="bg-white p-6 rounded-lg shadow-lg">
                 <label htmlFor="patientSex" className="block text-sm font-medium text-gray-700">Sexo</label>
                 <select id="patientSex" name="patientSex" value={selectedSex} onChange={(e) => setSelectedSex(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required>
-                    <option value="">Seleccione</option>
+                    <option value="" disabled>Seleccione</option>
                     <option value="M">Masculino</option>
                     <option value="F">Femenino</option>
                     <option value="N">Otro</option>
@@ -336,7 +338,22 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 <input type="time" id="admissionTime" name="admissionTime" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-2">
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-1">
+                <label htmlFor="patientBloodType" className="block text-sm font-medium text-gray-700">Tipo de Sangre</label>
+                <select id="patientBloodType" name="patientBloodType" value={selectedBloodType} onChange={(e) => setSelectedBloodType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required>
+                    <option value="" disabled>Seleccione</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                </select>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-1">
                 <label htmlFor="serviceUnitBed" className="block text-sm font-medium text-gray-700">Servicio / Unidad / Cama</label>
                 <input placeholder="Ej. Urgencias / Cama 4" type="text" id="serviceUnitBed" name="serviceUnitBed" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
             </div>
