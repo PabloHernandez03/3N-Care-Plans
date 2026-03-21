@@ -1,41 +1,21 @@
+// PatientList.jsx — solo cambiar la URL
 import { useEffect, useState } from "react";
 import axios from "axios";
-import PatientCards from "./PatientCards";  
+import PatientCards from "./PatientCards";
 
-export default function PatientList() {
-
+export default function PatientList({ onAddPatient }) {
     const [patients, setPatients] = useState([]);
 
     useEffect(() => {
-
-        const fetchPatients = async () => {
-
-            try {
-
-                const res = await axios.get("http://localhost:5000/api/patients");
-
-                console.log(res.data);
-
-                setPatients(res.data);
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        };
-
-        fetchPatients();
-
+        axios.get("http://localhost:5000/api/patients/patients-with-admission")
+            .then(res => setPatients(res.data))
+            .catch(err => console.error("Error al cargar pacientes:", err));
     }, []);
 
     return (
-        <div>
-            <PatientCards
+        <PatientCards
             patients={patients}
             onSelectPatient={(p) => console.log('Seleccionado:', p)}
-            />
-        </div>
+        />
     );
 }
