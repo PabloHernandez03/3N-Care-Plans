@@ -10,7 +10,24 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const patients = await Patient.find();
-    res.json(patients);
+
+    // Una sola query para todos los últimos ingresos
+    const ultimosIngresos = await Admission.aggregate([
+      { $sort: { "ingreso.fecha": -1 } },
+      { $group: { _id: "$pacienteId", ultimoIngreso: { $first: "$$ROOT" } } }
+    ]);
+
+    // Mapear por pacienteId para acceso O(1)
+    const ingresoMap = Object.fromEntries(
+      ultimosIngresos.map(u => [u._id.toString(), u.ultimoIngreso])
+    );
+
+    const result = patients.map(p => ({
+      ...p.toJSON(),
+      ultimoIngreso: ingresoMap[p._id.toString()] || null
+    }));
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Error obteniendo pacientes" });
   }

@@ -1,34 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import Button from '@/components/shared/Button';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faUser, faPills, faHospital, faLeaf, faClipboard, faCalendar, faHistory } from '@fortawesome/free-solid-svg-icons';
+// import Button from '@/components/shared/Button';
 
+/* ─── Utilidades ─────────────────────────────────────────────────────────── */
+const calcularEdad = (fechaStr) => {
+    let nacimiento;
+    if (typeof fechaStr === 'string' && fechaStr.includes('/')) {
+        const [d, m, y] = fechaStr.split('/');
+        nacimiento = new Date(`${y}-${m}-${d}T00:00:00`);
+    } else {
+        nacimiento = new Date(fechaStr);
+    }
+    if (isNaN(nacimiento)) return null;
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const m = hoy.getMonth() - nacimiento.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+    return edad;
+};
+
+const formatearFecha = (fechaStr) => {
+    if (!fechaStr) return "";
+    if (typeof fechaStr === 'string' && fechaStr.includes('/')) return fechaStr;
+    const d = new Date(fechaStr);
+    if (isNaN(d)) return "";
+    return [d.getUTCDate(), d.getUTCMonth() + 1, d.getUTCFullYear()]
+        .map(n => String(n).padStart(2, '0')).join('/');
+};
+
+/* ─── Sub-componentes de UI ──────────────────────────────────────────────── */
+const SectionTitle = ({ icon, children }) => (
+    <div className="col-span-full flex items-center gap-3 mt-2">
+        <div className="w-8 h-8 rounded-lg bg-primario flex items-center justify-center text-white text-base shrink-0">
+            {icon}
+        </div>
+        <h2 className="text-base font-semibold tracking-wide text-[#0f3460] uppercase">
+            {children}
+        </h2>
+        <div className="flex-1 h-px bg-primario/15" />
+    </div>
+);
+
+const Card = ({ children, className = "" }) => (
+    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-5 ${className}`}>
+        {children}
+    </div>
+);
+
+const FieldLabel = ({ htmlFor, children, sub }) => (
+    <label htmlFor={htmlFor} className="block text-xs font-semibold text-[#0f3460]/70 uppercase tracking-wider mb-1.5">
+        {children}
+        {sub && <span className="ml-1 font-normal normal-case text-gray-400">{sub}</span>}
+    </label>
+);
+
+const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 transition focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20";
+const selectCls = `${inputCls} appearance-none cursor-pointer`;
+const disabledInputCls = "w-full rounded-lg border border-gray-100 bg-gray-100 px-3 py-2.5 text-sm text-gray-400 cursor-not-allowed";
+
+const CheckItem = ({ name, label }) => (
+    <label className="flex items-center gap-2.5 cursor-pointer group">
+        <div className="relative">
+            <input type="checkbox" name={name}
+                   className="peer w-4 h-4 rounded border-2 border-gray-300 accent-[#0f3460] cursor-pointer" />
+        </div>
+        <span className="text-sm text-gray-600 group-hover:text-gray-900 transition">{label}</span>
+    </label>
+);
+
+const RadioItem = ({ name, value, label, className = "" }) => (
+    <label className={`flex items-center gap-2.5 cursor-pointer group ${className}`}>
+        <input type="radio" name={name} value={value}
+               className="w-4 h-4 border-2 border-gray-300 accent-[#0f3460] cursor-pointer" />
+        <span className="text-sm text-gray-600 group-hover:text-gray-900 transition">{label}</span>
+    </label>
+);
+
+/* ─── Componente principal ───────────────────────────────────────────────── */
 const CarePlanForm = ({ onCancel, onPatientSaved }) => {
-    const [patientList, setPatientList] = useState([]);
-    const [selectedOption, setSelectedOption] = useState("");
-    const [selectedSex, setSelectedSex] = useState("");
+    const [patientList, setPatientList]         = useState([]);
+    const [selectedOption, setSelectedOption]   = useState("");
+    const [selectedSex, setSelectedSex]         = useState("");
     const [selectedBloodType, setSelectedBloodType] = useState("");
-
-    // ESTADOS PARA BLOQUEOS CLÍNICOS
-    const [noAllergies, setNoAllergies] = useState(false);
-    const [hasAllergyText, setHasAllergyText] = useState(false);
+    const [noAllergies, setNoAllergies]         = useState(false);
+    const [hasAllergyText, setHasAllergyText]   = useState(false);
+    const [medicamentos, setMedicamentos] = useState([
+        { nombre: "", dosis: "", frecuencia: "", via: "" }
+    ]);
+    const hasMedsText = medicamentos.some(m => Object.values(m).some(v => v !== ""));
     const [noMeds, setNoMeds] = useState(false);
-    const [hasMedsText, setHasMedsText] = useState(false);
+
+    const addMedicamento = () => {
+        setMedicamentos(prev => [...prev, { nombre: "", dosis: "", frecuencia: "", via: "" }]);
+    };
+
+    const removeMedicamento = (index) => {
+        setMedicamentos(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateMedicamento = (index, field, value) => {
+        setMedicamentos(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
+    };
+    const [edadMostrada, setEdadMostrada]       = useState(null);
 
     useEffect(() => {
-        const fetchPatients = async () => {
-            try {
-                const res = await fetch('http://localhost:5000/api/patients');
-                const data = await res.json();
-                setPatientList(data);
-            } catch (error) {
-                console.error("Error al cargar pacientes:", error);
-            }
-        };
-        fetchPatients();
+        fetch('http://localhost:5000/api/patients')
+            .then(r => r.json())
+            .then(setPatientList)
+            .catch(err => console.error("Error al cargar pacientes:", err));
     }, []);
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter') e.preventDefault();
-    };
+    const handleKeyDown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
 
     const handleDate = (e) => {
         let { value } = e.target;
@@ -37,31 +120,21 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
         if (value.length > 5) value = value.slice(0, 5) + '/' + value.slice(5, 10);
         if (value.length > 10) value = value.slice(0, 10);
         e.target.value = value;
-    };
-
-    const handleAge = (e) => {
-        const { value } = e.target;
-        if (/^[0-9]*$/.test(value)) {
-            if (parseInt(value) > 130) e.target.value = value.slice(0, -1);
-        } else {
-            e.target.value = value.slice(0, -1);
+        if (e.target.id === 'patientBirthdate') {
+            setEdadMostrada(value.length === 10 ? calcularEdad(value) : null);
         }
     };
 
-    // Funciones para escuchar si el usuario escribe y bloquear los checkboxes
     const checkAllergyInputs = () => {
-        const m = document.querySelector('[name="medicationAllergies"]').value;
-        const f = document.querySelector('[name="foodAllergies"]').value;
-        const e = document.querySelector('[name="environmentalAllergies"]').value;
-        setHasAllergyText(m !== '' || f !== '' || e !== '');
+        const vals = ['medicationAllergies','foodAllergies','environmentalAllergies']
+            .map(n => document.querySelector(`[name="${n}"]`)?.value || '');
+        setHasAllergyText(vals.some(v => v !== ''));
     };
 
     const checkMedsInputs = () => {
-        const n = document.querySelector('[name="medName"]').value;
-        const d = document.querySelector('[name="medDose"]').value;
-        const f = document.querySelector('[name="medFreq"]').value;
-        const v = document.querySelector('[name="medRoute"]').value;
-        setHasMedsText(n !== '' || d !== '' || f !== '' || v !== '');
+        const vals = ['medName','medDose','medFreq','medRoute']
+            .map(n => document.querySelector(`[name="${n}"]`)?.value || '');
+        setHasMedsText(vals.some(v => v !== ''));
     };
 
     const handleSubmit = async (e) => {
@@ -70,25 +143,22 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
         const data = Object.fromEntries(form.entries());
 
         const patientPayload = {
-            nombre: data.patientName,
+            nombre: {
+                nombre:          data.firstName,
+                apellidoPaterno: data.lastNameP,
+                apellidoMaterno: data.lastNameM || undefined
+            },
             curp: data.curp.toUpperCase(),
-            edad: Number(data.age),
-            sexo: data.patientSex,
-            fechaNacimiento: data.patientBirthdate,
-            ingreso: {
-                fecha: data.admissionDate,
-                hora: data.admissionTime,
-                servicioCama: data.serviceUnitBed,
-                diagnosticoMedico: data.medicalDiagnosis
+            demograficos: {
+                fechaNacimiento: data.patientBirthdate,
+                sexo:            data.patientSex,
+                tipoSangre:      data.patientBloodType
             },
             antecedentes: {
                 patologicos: [
-                    data.diabetes && "Diabetes",
-                    data.hypertension && "Hipertensión",
-                    data.cardiopathies && "Cardiopatías",
-                    data.asthma && "Asma/EPOC",
-                    data.epilepsy && "Epilepsia",
-                    data.cancer && "Cáncer",
+                    data.diabetes && "Diabetes", data.hypertension && "Hipertensión",
+                    data.cardiopathies && "Cardiopatías", data.asthma && "Asma/EPOC",
+                    data.epilepsy && "Epilepsia", data.cancer && "Cáncer",
                     data.otherPathological ? `Otro: ${data.otherPathological}` : null
                 ].filter(Boolean),
                 noPatologicos: [
@@ -99,150 +169,145 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                     data.otherNonPathological ? `Otro: ${data.otherNonPathological}` : null
                 ].filter(Boolean),
                 quirurgicos: [
-                    data.appendectomy && "Apendicectomía",
-                    data.cesarean && "Cesárea",
+                    data.appendectomy && "Apendicectomía", data.cesarean && "Cesárea",
                     data.orthopedic && "Cirugía ortopédica",
                     data.otherSurgical ? `Otro: ${data.otherSurgical}` : null
-                ].filter(Boolean),
-                alergias: {
-                    ninguna: !!data.noKnownAllergies,
-                    medicamentos: data.medicationAllergies || "",
-                    alimentos: data.foodAllergies || "",
-                    ambientales: data.environmentalAllergies || ""
-                },
-                medicacionActual: {
-                    ninguna: !!data.noMedication,
-                    nombre: data.medName || "",
-                    dosis: data.medDose || "",
-                    frecuencia: data.medFreq || "",
-                    via: data.medRoute || ""
-                },
-                habitos: {
-                    tabaquismo: data.smoking || "No",
-                    alcoholismo: data.alcohol || "No",
-                    alimentacion: data.diet || "Balanceada"
-                },
-                redCuidados: data.familySupport || ""
+                ].filter(Boolean)
+            },
+            alergias: {
+                ninguna:      !!data.noKnownAllergies,
+                medicamentos: data.medicationAllergies || "",
+                alimentos:    data.foodAllergies || "",
+                ambientales:  data.environmentalAllergies || ""
+            },
+            medicacionActual: noMeds
+                ? [{ ninguna: true, nombre: "", dosis: "", frecuencia: "", via: "" }]
+                : medicamentos.filter(m => m.nombre || m.dosis || m.frecuencia || m.via)
+                            .map(m => ({ ...m, ninguna: false })),
+            habitos: {
+                tabaquismo:   data.smoking || "No",
+                alcoholismo:  data.alcohol || "No",
+                alimentacion: data.diet || "Balanceada"
+            },
+            redCuidados: data.familySupport || "",
+            ingreso: {
+                fecha:             data.admissionDate,
+                hora:              data.admissionTime,
+                servicio:          data.admissionService,
+                cama:              data.admissionBed,
+                diagnosticoMedico: data.medicalDiagnosis
             }
         };
 
         if (selectedOption === "") {
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
-            if (curpExists) {
-                alert("Ya existe un registro con esta CURP. Por favor, selecciónalo en la lista de arriba.");
-                return;
-            }
+            if (curpExists) { alert("Ya existe un registro con esta CURP."); return; }
             try {
-                const response = await fetch('http://localhost:5000/api/patients', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                const res = await fetch('http://localhost:5000/api/patients', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(patientPayload)
                 });
-                if (response.ok) {
-                    const savedPatient = await response.json();
-                    alert("¡Paciente NUEVO guardado con éxito!");
-                    onPatientSaved(savedPatient);
-                } else {
-                    const errData = await response.json();
-                    alert(`Error al guardar paciente: ${errData.error}`);
-                }
-            } catch (error) {
-                alert("No se pudo conectar con el servidor.");
-            }
+                if (res.ok) { onPatientSaved(await res.json()); alert("¡Paciente guardado!"); }
+                else { const err = await res.json(); alert(`Error: ${err.error}`); }
+            } catch { alert("No se pudo conectar con el servidor."); }
         } else {
             try {
-                const response = await fetch(`http://localhost:5000/api/patients/${selectedOption}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(patientPayload)
+                await fetch(`http://localhost:5000/api/patients/${selectedOption}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
                 });
-                if (response.ok) {
-                    const updatedPatient = await response.json();
-                    alert("¡Datos del paciente ACTUALIZADOS con éxito!");
-                    onPatientSaved(updatedPatient);
-                } else {
-                    const errData = await response.json();
-                    alert(`Error al actualizar paciente: ${errData.error}`);
-                }
-            } catch (error) {
-                alert("No se pudo conectar con el servidor.");
-            }
+                const expRes = await fetch(`http://localhost:5000/api/patients/${selectedOption}/expediente`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
+                        medicacionActual: patientPayload.medicacionActual, habitos: patientPayload.habitos,
+                        redCuidados: patientPayload.redCuidados
+                    })
+                });
+                if (expRes.ok) { onPatientSaved(await expRes.json()); alert("¡Datos actualizados!"); }
+                else { const err = await expRes.json(); alert(`Error: ${err.error}`); }
+            } catch { alert("No se pudo conectar con el servidor."); }
         }
+    };
+
+    const resetForm = () => {
+        document.querySelectorAll('input[type="text"], input[type="time"]').forEach(i => i.value = "");
+        document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(i => i.checked = false);
+        document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        setSelectedSex(""); setSelectedBloodType(""); setEdadMostrada(null);
+        setNoAllergies(false); setHasAllergyText(false);
+        setNoMeds(false); setHasMedsText(false);
+        ['firstName','lastNameP','lastNameM','curp'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.readOnly = false;
+        });
+        setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
     };
 
     const handlePatientSelect = (e) => {
         const id = e.target.value;
         setSelectedOption(id);
+        if (id === "") { resetForm(); return; }
 
-        if (id === "") {
-            document.querySelectorAll('input[type="text"], input[type="time"]').forEach(input => input.value = "");
-            document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(cb => cb.checked = false);
-            document.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
-            setSelectedSex("");
-            setNoAllergies(false);
-            setHasAllergyText(false);
-            setNoMeds(false);
-            setHasMedsText(false);
-            document.getElementById("patientName").readOnly = false;
-            document.getElementById("curp").readOnly = false;
-        } else {
-            const paciente = patientList.find(p => p._id === id);
-            if (paciente) {
-                // Datos básicos
-                document.getElementById("patientName").value = paciente.nombre || "";
-                document.getElementById("age").value = paciente.edad || "";
-                setSelectedSex(paciente.sexo || "");
-                setSelectedBloodType(paciente.sangre || "");
-                document.getElementById("patientBirthdate").value = paciente.fechaNacimiento || "";
-                document.getElementById("curp").value = paciente.curp || "";
-                document.getElementById("patientName").readOnly = true;
-                document.getElementById("curp").readOnly = true;
-                
-                // Ingreso
-                document.getElementById("admissionDate").value = paciente.ingreso?.fecha || "";
-                document.getElementById("admissionTime").value = paciente.ingreso?.hora || "";
-                document.getElementById("serviceUnitBed").value = paciente.ingreso?.servicioCama || "";
-                document.getElementById("medicalDiagnosis").value = paciente.ingreso?.diagnosticoMedico || "";
+        const paciente = patientList.find(p => p._id === id);
+        if (!paciente) return;
 
-                // Resetear checkboxes y radios
-                document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(cb => cb.checked = false);
+        const nom = paciente.nombre || {};
+        document.getElementById("firstName").value = nom.nombre || "";
+        document.getElementById("lastNameP").value = nom.apellidoPaterno || "";
+        document.getElementById("lastNameM").value = nom.apellidoMaterno || "";
+        ['firstName','lastNameP','lastNameM','curp'].forEach(fId => {
+            const el = document.getElementById(fId);
+            if (el) el.readOnly = true;
+        });
 
-                const ant = paciente.antecedentes || {};
+        document.getElementById("curp").value = paciente.curp || "";
+        const fechaFormateada = formatearFecha(paciente.demograficos?.fechaNacimiento);
+        document.getElementById("patientBirthdate").value = fechaFormateada;
+        setEdadMostrada(calcularEdad(fechaFormateada));
+        setSelectedSex(paciente.demograficos?.sexo || "");
+        setSelectedBloodType(paciente.demograficos?.tipoSangre || "");
 
-                // Patológicos
-                const patologicos = ant.patologicos || [];
-                if (patologicos.includes("Diabetes")) document.querySelector('[name="diabetes"]').checked = true;
-                if (patologicos.includes("Hipertensión")) document.querySelector('[name="hypertension"]').checked = true;
-                if (patologicos.includes("Cardiopatías")) document.querySelector('[name="cardiopathies"]').checked = true;
-                if (patologicos.includes("Asma/EPOC")) document.querySelector('[name="asthma"]').checked = true;
-                if (patologicos.includes("Epilepsia")) document.querySelector('[name="epilepsy"]').checked = true;
-                if (patologicos.includes("Cáncer")) document.querySelector('[name="cancer"]').checked = true;
-                const otroPat = patologicos.find(item => item.startsWith("Otro: "));
+        ['admissionDate','admissionService','admissionBed','medicalDiagnosis'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+        document.getElementById("admissionTime").value = "";
+
+        fetch(`http://localhost:5000/api/patients/${id}`)
+            .then(r => r.json())
+            .then(({ clinicalRecord }) => {
+                if (!clinicalRecord) return;
+                document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(i => i.checked = false);
+
+                const ant = clinicalRecord.antecedentes || {};
+                const pats = ant.patologicos || [];
+                [["Diabetes","diabetes"],["Hipertensión","hypertension"],["Cardiopatías","cardiopathies"],
+                 ["Asma/EPOC","asthma"],["Epilepsia","epilepsy"],["Cáncer","cancer"]].forEach(([val, name]) => {
+                    if (pats.includes(val)) document.querySelector(`[name="${name}"]`).checked = true;
+                });
+                const otroPat = pats.find(i => i.startsWith("Otro: "));
                 if (otroPat) document.querySelector('[name="otherPathological"]').value = otroPat.replace("Otro: ", "");
 
-                // No Patológicos
-                const noPatologicos = ant.noPatologicos || [];
-                if (noPatologicos.includes("Esquema de vacunación completo")) document.querySelector('[name="vaccination"]').checked = true;
-                if (noPatologicos.includes("Actividad física regular")) document.querySelector('[name="physicalActivity"]').checked = true;
-                if (noPatologicos.includes("Alimentación saludable")) document.querySelector('[name="healthyDiet"]').checked = true;
-                if (noPatologicos.includes("Higiene deficiente")) document.querySelector('[name="poorHygiene"]').checked = true;
-                const otroNoPat = noPatologicos.find(item => item.startsWith("Otro: "));
+                const noPats = ant.noPatologicos || [];
+                [["Esquema de vacunación completo","vaccination"],["Actividad física regular","physicalActivity"],
+                 ["Alimentación saludable","healthyDiet"],["Higiene deficiente","poorHygiene"]].forEach(([val, name]) => {
+                    if (noPats.includes(val)) document.querySelector(`[name="${name}"]`).checked = true;
+                });
+                const otroNoPat = noPats.find(i => i.startsWith("Otro: "));
                 if (otroNoPat) document.querySelector('[name="otherNonPathological"]').value = otroNoPat.replace("Otro: ", "");
 
-                // Quirúrgicos
-                const quirurgicos = ant.quirurgicos || [];
-                if (quirurgicos.includes("Apendicectomía")) document.querySelector('[name="appendectomy"]').checked = true;
-                if (quirurgicos.includes("Cesárea")) document.querySelector('[name="cesarean"]').checked = true;
-                if (quirurgicos.includes("Cirugía ortopédica")) document.querySelector('[name="orthopedic"]').checked = true;
-                const otroQuir = quirurgicos.find(item => item.startsWith("Otro: "));
+                const quirs = ant.quirurgicos || [];
+                [["Apendicectomía","appendectomy"],["Cesárea","cesarean"],["Cirugía ortopédica","orthopedic"]].forEach(([val, name]) => {
+                    if (quirs.includes(val)) document.querySelector(`[name="${name}"]`).checked = true;
+                });
+                const otroQuir = quirs.find(i => i.startsWith("Otro: "));
                 if (otroQuir) document.querySelector('[name="otherSurgical"]').value = otroQuir.replace("Otro: ", "");
 
-                // Alergias
-                const alergias = ant.alergias || {};
+                const alergias = clinicalRecord.alergias || {};
                 setNoAllergies(!!alergias.ninguna);
                 if (alergias.ninguna) {
                     document.querySelector('[name="noKnownAllergies"]').checked = true;
-                    setHasAllergyText(false);
                 } else {
                     document.querySelector('[name="medicationAllergies"]').value = alergias.medicamentos || "";
                     document.querySelector('[name="foodAllergies"]').value = alergias.alimentos || "";
@@ -250,218 +315,429 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                     checkAllergyInputs();
                 }
 
-                // Medicación
-                const meds = ant.medicacionActual || {};
-                setNoMeds(!!meds.ninguna);
-                if (meds.ninguna) {
-                    document.querySelector('[name="noMedication"]').checked = true;
-                    setHasMedsText(false);
+                const meds = clinicalRecord.medicacionActual || [];
+                if (meds.length > 0 && meds[0]?.ninguna) {
+                    setNoMeds(true);
+                    setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
+                } else if (meds.length > 0) {
+                    setNoMeds(false);
+                    setMedicamentos(meds.map(m => ({
+                        nombre:     m.nombre     || "",
+                        dosis:      m.dosis      || "",
+                        frecuencia: m.frecuencia || "",
+                        via:        m.via        || ""
+                    })));
                 } else {
-                    document.querySelector('[name="medName"]').value = meds.nombre || "";
-                    document.querySelector('[name="medDose"]').value = meds.dosis || "";
-                    document.querySelector('[name="medFreq"]').value = meds.frecuencia || "";
-                    document.querySelector('[name="medRoute"]').value = meds.via || "";
-                    checkMedsInputs();
+                    setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
                 }
 
-                // Hábitos
-                const habitos = ant.habitos || {};
-                document.querySelector('[name="smoking"]').value = habitos.tabaquismo || "No";
-                document.querySelector('[name="alcohol"]').value = habitos.alcoholismo || "No";
-                document.querySelector('[name="diet"]').value = habitos.alimentacion || "Balanceada";
+                const hab = clinicalRecord.habitos || {};
+                document.querySelector('[name="smoking"]').value = hab.tabaquismo || "No";
+                document.querySelector('[name="alcohol"]').value = hab.alcoholismo || "No";
+                document.querySelector('[name="diet"]').value = hab.alimentacion || "Balanceada";
 
-                // Red de Cuidados (Radio)
-                if (ant.redCuidados) {
-                    const radio = document.querySelector(`[name="familySupport"][value="${ant.redCuidados}"]`);
+                if (clinicalRecord.redCuidados) {
+                    const radio = document.querySelector(`[name="familySupport"][value="${clinicalRecord.redCuidados}"]`);
                     if (radio) radio.checked = true;
                 }
-            }
-        }
+            })
+            .catch(err => console.error("Error cargando expediente:", err));
     };
 
     return (
-        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            <h2 className="col-span-5 text-xl font-bold text-gray-700">Información del Paciente</h2>
-            
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-2 md:row-span-3 flex flex-col items-center">
-                <label htmlFor="patientId" className="block text-sm font-medium text-gray-700">Seleccionar Paciente Existente (Opcional)</label>
-                <select id="patientId" name="patientId" value={selectedOption} onChange={handlePatientSelect} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500">
-                    <option value="">-- Registrar Nuevo Paciente --</option>
-                    {patientList.map((paciente) => (
-                        <option key={paciente._id} value={paciente._id}>{paciente.nombre} - {paciente.curp}</option>
-                    ))}
-                </select>
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}
+              className="space-y-6 font-sans">
+
+            {/* ── ENCABEZADO ── */}
+            <div className="flex items-center justify-between pb-4 border-b-2 border-[#0f3460]/10">
+                <div>
+                    <h1 className="text-2xl font-bold text-[#0f3460] tracking-tight">
+                        Registro de Paciente
+                    </h1>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                        {selectedOption === "" ? "Nuevo ingreso" : "Editar expediente existente"}
+                    </p>
+                </div>
                 {selectedOption !== "" && (
-                    <div className="flex justify-center p-2 mt-4">
-                        <Button type="button" onClick={() => console.log("Abriendo historial")} variant="primary">Ver Historial Clínico</Button>
-                    </div>
+                    <button type="button"
+                            onClick={() => console.log("Abriendo historial")}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-[#0f3460] text-[#0f3460] text-sm font-semibold hover:bg-primario hover:text-white transition-all">
+                        <span><FontAwesomeIcon icon={faHistory} /></span> Ver historial
+                    </button>
                 )}
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-3">
-                <label htmlFor="patientName" className="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                <input id="patientName" placeholder="Nombre del paciente" type="text" name="patientName" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required={selectedOption === ""} />
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor="age" className="block text-sm font-medium text-gray-700">Edad</label>
-                <input id="age" placeholder="Edad" type="text" name="age" maxLength={3} onChange={handleAge} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
-            </div>
+            {/* ══ SECCIÓN 1: IDENTIFICACIÓN ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faUser} />}>Identificación del paciente</SectionTitle>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor="patientSex" className="block text-sm font-medium text-gray-700">Sexo</label>
-                <select id="patientSex" name="patientSex" value={selectedSex} onChange={(e) => setSelectedSex(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required>
-                    <option value="" disabled>Seleccione</option>
-                    <option value="M">Masculino</option>
-                    <option value="F">Femenino</option>
-                    <option value="N">Otro</option>
-                </select>
-            </div>
+                {/* Selector de paciente */}
+                <Card className="col-span-full">
+                    <FieldLabel>Seleccionar paciente existente</FieldLabel>
+                    <div className="relative">
+                        <select value={selectedOption} onChange={handlePatientSelect} className={selectCls}>
+                            <option value="">— Registrar nuevo paciente —</option>
+                            {patientList.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                    {p.nombre?.apellidoPaterno} {p.nombre?.apellidoMaterno}, {p.nombre?.nombre} — {p.curp}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
+                    </div>
+                    {selectedOption === "" && (
+                        <p className="mt-2 text-xs text-[#16a09e] font-medium">
+                            ✦ Deja en blanco para registrar un paciente nuevo
+                        </p>
+                    )}
+                </Card>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor="patientBirthdate" className="block text-sm font-medium text-gray-700">Fecha de nacimiento</label>
-                <input placeholder="DD/MM/AAAA" type="text" id="patientBirthdate" name="patientBirthdate" onChange={handleDate} maxLength={10} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" pattern="\d{2}/\d{2}/\d{4}" required />
-            </div>
+                {/* Nombre en 3 campos */}
+                <Card className="col-span-full">
+                    <FieldLabel>Nombre completo</FieldLabel>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Nombre(s)</p>
+                            <input id="firstName" name="firstName" type="text" placeholder="Ej. María Elena"
+                                   className={inputCls} required={selectedOption === ""} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Apellido paterno</p>
+                            <input id="lastNameP" name="lastNameP" type="text" placeholder="Ej. García"
+                                   className={inputCls} required={selectedOption === ""} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Apellido materno <span className="text-gray-300">(opcional)</span></p>
+                            <input id="lastNameM" name="lastNameM" type="text" placeholder="Ej. López"
+                                   className={inputCls} />
+                        </div>
+                    </div>
+                </Card>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor='curp' className="block text-sm font-medium text-gray-700">CURP</label>
-                <input placeholder="CURP" type="text" id="curp" name="curp" maxLength={18} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 uppercase" required />
-            </div>
+                {/* CURP + Datos demográficos */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card>
+                        <FieldLabel htmlFor="curp">CURP</FieldLabel>
+                        <input id="curp" name="curp" type="text" placeholder="18 caracteres" maxLength={18}
+                               className={`${inputCls} uppercase tracking-widest`} required />
+                    </Card>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor="admissionDate" className="block text-sm font-medium text-gray-700">Fecha de ingreso</label>
-                <input placeholder="DD/MM/AAAA" type="text" id="admissionDate" name="admissionDate" onChange={handleDate} maxLength={10} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" pattern="\d{2}/\d{2}/\d{4}" required />
-            </div>
+                    <Card>
+                        <FieldLabel htmlFor="patientBirthdate">Fecha de nacimiento</FieldLabel>
+                        <input id="patientBirthdate" name="patientBirthdate" type="text"
+                               placeholder="DD/MM/AAAA" onChange={handleDate} maxLength={10}
+                               pattern="\d{2}/\d{2}/\d{4}" className={inputCls} required />
+                        {edadMostrada !== null && (
+                            <div className="mt-2 inline-flex items-center gap-1.5 bg-primario/10 text-primario rounded-full px-3 py-1 text-xs font-semibold">
+                                <span><FontAwesomeIcon icon={faCalendar} /></span> {edadMostrada} años
+                            </div>
+                        )}
+                    </Card>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <label htmlFor="admissionTime" className="block text-sm font-medium text-gray-700">Hora de ingreso</label>
-                <input type="time" id="admissionTime" name="admissionTime" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
-            </div>
+                    <Card>
+                        <FieldLabel htmlFor="patientSex">Sexo biológico</FieldLabel>
+                        <div className="relative">
+                            <select id="patientSex" name="patientSex" value={selectedSex}
+                                    onChange={(e) => setSelectedSex(e.target.value)}
+                                    className={selectCls} required>
+                                <option value="" disabled>Seleccione</option>
+                                <option value="M">Masculino</option>
+                                <option value="F">Femenino</option>
+                                <option value="N">Otro</option>
+                            </select>
+                            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
+                        </div>
+                    </Card>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-1">
-                <label htmlFor="patientBloodType" className="block text-sm font-medium text-gray-700">Tipo de Sangre</label>
-                <select id="patientBloodType" name="patientBloodType" value={selectedBloodType} onChange={(e) => setSelectedBloodType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required>
-                    <option value="" disabled>Seleccione</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                </select>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-1">
-                <label htmlFor="serviceUnitBed" className="block text-sm font-medium text-gray-700">Servicio / Unidad / Cama</label>
-                <input placeholder="Ej. Urgencias / Cama 4" type="text" id="serviceUnitBed" name="serviceUnitBed" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 md:col-span-3">
-                <label htmlFor="medicalDiagnosis" className="block text-sm font-medium text-gray-700">Diagnóstico médico</label>
-                <input placeholder="Diagnóstico preliminar o definitivo" id="medicalDiagnosis" name="medicalDiagnosis" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500" required />
-            </div>
-            
-            { /* ANTECEDENTES PERSONALES Y DATOS RELEVANTES */ }
-            <h2 className="col-span-5 text-xl font-bold text-gray-700 mt-4 border-t pt-4">Antecedentes personales y datos relevantes</h2>
-            
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">Patológicos</label>
-                <div className="space-y-2">
-                    <label className="flex items-center"><input type="checkbox" name="diabetes" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Diabetes mellitus</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="hypertension" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Hipertensión arterial</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="cardiopathies" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Cardiopatías</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="asthma" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Asma / EPOC</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="epilepsy" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Epilepsia</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="cancer" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Cáncer</span></label>
-                    <label className="flex items-center mt-2"><span className="mr-2">Otra:</span><input type="text" name="otherPathological" className="w-full border-b border-gray-300 focus:border-blue-500 focus:outline-none" /></label>
+                    <Card>
+                        <FieldLabel htmlFor="patientBloodType">Tipo de sangre</FieldLabel>
+                        <div className="relative">
+                            <select id="patientBloodType" name="patientBloodType" value={selectedBloodType}
+                                    onChange={(e) => setSelectedBloodType(e.target.value)}
+                                    className={selectCls} required>
+                                <option value="" disabled>Seleccione</option>
+                                {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
+                        </div>
+                    </Card>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">No patológicos</label>
-                <div className="space-y-2">
-                    <label className="flex items-center"><input type="checkbox" name="vaccination" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Esquema vacunación</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="physicalActivity" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Actividad física</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="healthyDiet" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Dieta saludable</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="poorHygiene" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Higiene deficiente</span></label>
-                    <label className="flex items-center mt-2"><span className="mr-2">Otra:</span><input type="text" name="otherNonPathological" className="w-full border-b border-gray-300 focus:border-blue-500 focus:outline-none" /></label>
+            {/* ══ SECCIÓN 2: INGRESO ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faHospital} />}>Datos de ingreso</SectionTitle>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <Card>
+                        <FieldLabel htmlFor="admissionDate">Fecha de ingreso</FieldLabel>
+                        <input id="admissionDate" name="admissionDate" type="text"
+                               placeholder="DD/MM/AAAA" onChange={handleDate} maxLength={10}
+                               pattern="\d{2}/\d{2}/\d{4}" className={inputCls} required />
+                    </Card>
+
+                    <Card>
+                        <FieldLabel htmlFor="admissionTime">Hora</FieldLabel>
+                        <input id="admissionTime" name="admissionTime" type="time"
+                               className={inputCls} required />
+                    </Card>
+
+                    <Card>
+                        <FieldLabel htmlFor="admissionService">Servicio / Unidad</FieldLabel>
+                        <input id="admissionService" name="admissionService" type="text"
+                               placeholder="Ej. Urgencias" className={inputCls} required />
+                    </Card>
+
+                    <Card>
+                        <FieldLabel htmlFor="admissionBed">Cama</FieldLabel>
+                        <input id="admissionBed" name="admissionBed" type="text"
+                               placeholder="Ej. Cama 4" className={inputCls} required />
+                    </Card>
+
+                    <Card className="sm:col-span-2 lg:col-span-1">
+                        <FieldLabel htmlFor="medicalDiagnosis">Diagnóstico médico</FieldLabel>
+                        <input id="medicalDiagnosis" name="medicalDiagnosis" type="text"
+                               placeholder="Diagnóstico preliminar o definitivo"
+                               className={inputCls} required />
+                    </Card>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">Quirúrgicos</label>
-                <div className="space-y-2">
-                    <label className="flex items-center"><input type="checkbox" name="appendectomy" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Apendicectomía</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="cesarean" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Cesárea</span></label>
-                    <label className="flex items-center"><input type="checkbox" name="orthopedic" className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0" /><span className="ml-2">Cirugía ortopédica</span></label>
-                    <label className="flex items-center mt-2"><span className="mr-2">Otra:</span><input type="text" name="otherSurgical" className="w-full border-b border-gray-300 focus:border-blue-500 focus:outline-none" /></label>
+            {/* ══ SECCIÓN 3: ANTECEDENTES ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faClipboard} />}>Antecedentes personales</SectionTitle>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Patológicos */}
+                    <Card>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-red-400 mb-1.5" />
+                            <FieldLabel>Patológicos</FieldLabel>
+                        </div>
+                        <div className="space-y-2.5">
+                            {[["diabetes","Diabetes mellitus"],["hypertension","Hipertensión arterial"],
+                              ["cardiopathies","Cardiopatías"],["asthma","Asma / EPOC"],
+                              ["epilepsy","Epilepsia"],["cancer","Cáncer"]].map(([name, label]) => (
+                                <CheckItem key={name} name={name} label={label} />
+                            ))}
+                            <div className="pt-1 border-t border-gray-100">
+                                <p className="text-xs text-gray-400 mb-1">Otra:</p>
+                                <input type="text" name="otherPathological"
+                                       placeholder="Especificar..."
+                                       className="w-full text-sm border-b border-gray-200 bg-transparent py-1 focus:outline-none focus:border-[#16a09e] text-gray-700 placeholder-gray-300" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* No patológicos */}
+                    <Card>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-green-400 mb-1.5" />
+                            <FieldLabel>No patológicos</FieldLabel>
+                        </div>
+                        <div className="space-y-2.5">
+                            {[["vaccination","Esquema de vacunación"],["physicalActivity","Actividad física regular"],
+                              ["healthyDiet","Alimentación saludable"],["poorHygiene","Higiene deficiente"]].map(([name, label]) => (
+                                <CheckItem key={name} name={name} label={label} />
+                            ))}
+                            <div className="pt-1 border-t border-gray-100">
+                                <p className="text-xs text-gray-400 mb-1">Otra:</p>
+                                <input type="text" name="otherNonPathological"
+                                       placeholder="Especificar..."
+                                       className="w-full text-sm border-b border-gray-200 bg-transparent py-1 focus:outline-none focus:border-[#16a09e] text-gray-700 placeholder-gray-300" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Quirúrgicos */}
+                    <Card>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-amber-400 mb-1.5" />
+                            <FieldLabel>Quirúrgicos</FieldLabel>
+                        </div>
+                        <div className="space-y-2.5">
+                            {[["appendectomy","Apendicectomía"],["cesarean","Cesárea"],
+                              ["orthopedic","Cirugía ortopédica"]].map(([name, label]) => (
+                                <CheckItem key={name} name={name} label={label} />
+                            ))}
+                            <div className="pt-1 border-t border-gray-100">
+                                <p className="text-xs text-gray-400 mb-1">Otra:</p>
+                                <input type="text" name="otherSurgical"
+                                       placeholder="Especificar..."
+                                       className="w-full text-sm border-b border-gray-200 bg-transparent py-1 focus:outline-none focus:border-[#16a09e] text-gray-700 placeholder-gray-300" />
+                            </div>
+                        </div>
+                    </Card>
                 </div>
             </div>
 
-            {/* ALERGIAS CON RESTRICCIONES */}
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-2 text-sm flex flex-col justify-between">
-                <div>
-                    <label className="block font-medium text-gray-700 mb-4">Alergias</label>
-                    <label className="flex items-center pb-2">
-                        <span className="mr-2 font-medium w-28">Medicamentos:</span>
-                        <input type="text" name="medicationAllergies" disabled={noAllergies} onChange={checkAllergyInputs} className="flex-1 border-b border-gray-300 focus:border-blue-500 focus:outline-none p-1 disabled:bg-gray-100" />
-                    </label>
-                    <label className="flex items-center py-2">
-                        <span className="mr-2 font-medium w-28">Alimentos:</span>
-                        <input type="text" name="foodAllergies" disabled={noAllergies} onChange={checkAllergyInputs} className="flex-1 border-b border-gray-300 focus:border-blue-500 focus:outline-none p-1 disabled:bg-gray-100" />
-                    </label>
-                    <label className="flex items-center py-2">
-                        <span className="mr-2 font-medium w-28">Ambientales:</span>
-                        <input type="text" name="environmentalAllergies" disabled={noAllergies} onChange={checkAllergyInputs} className="flex-1 border-b border-gray-300 focus:border-blue-500 focus:outline-none p-1 disabled:bg-gray-100" />
-                    </label>
-                    <label className="flex items-center py-2 mt-2">
-                        <input type="checkbox" name="noKnownAllergies" disabled={hasAllergyText} checked={noAllergies} onChange={(e) => { setNoAllergies(e.target.checked); if(e.target.checked) { document.querySelector('[name="medicationAllergies"]').value = ''; document.querySelector('[name="foodAllergies"]').value = ''; document.querySelector('[name="environmentalAllergies"]').value = ''; setHasAllergyText(false); } }} className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0 disabled:opacity-50" />
-                        <span className="ml-2 font-medium">No conocidas</span>
-                    </label>
+            {/* ══ SECCIÓN 4: CLÍNICA ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faPills} />}>Datos clínicos</SectionTitle>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Alergias */}
+                    <Card>
+                        <FieldLabel>Alergias conocidas</FieldLabel>
+                        <div className="space-y-2 mb-3">
+                            {[["medicationAllergies","Medicamentos"],["foodAllergies","Alimentos"],
+                              ["environmentalAllergies","Ambientales"]].map(([name, label]) => (
+                                <div key={name} className="flex items-center gap-3">
+                                    <span className="text-xs font-medium text-gray-500 w-24 shrink-0">{label}</span>
+                                    <input type="text" name={name} disabled={noAllergies}
+                                           onChange={checkAllergyInputs} placeholder="Describir..."
+                                           className={noAllergies ? disabledInputCls : inputCls} />
+                                </div>
+                            ))}
+                        </div>
+                        <label className="flex items-center gap-2.5 pt-3 border-t border-gray-100 cursor-pointer">
+                            <input type="checkbox" name="noKnownAllergies" disabled={hasAllergyText}
+                                   checked={noAllergies}
+                                   onChange={(e) => {
+                                       setNoAllergies(e.target.checked);
+                                       if (e.target.checked) {
+                                           ['medicationAllergies','foodAllergies','environmentalAllergies'].forEach(n => {
+                                               const el = document.querySelector(`[name="${n}"]`);
+                                               if (el) el.value = '';
+                                           });
+                                           setHasAllergyText(false);
+                                       }
+                                   }}
+                                   className="w-4 h-4 rounded accent-[#0f3460] disabled:opacity-40" />
+                            <span className="text-sm font-medium text-gray-600">Sin alergias conocidas</span>
+                        </label>
+                    </Card>
+
+                    {/* Medicación */}
+                    <Card>
+                        <div className="flex items-center justify-between mb-3">
+                            <FieldLabel>Medicación actual</FieldLabel>
+                            {!noMeds && (
+                                <button type="button" onClick={addMedicamento}
+                                        className="flex items-center gap-1 text-xs font-semibold text-[#16a09e] hover:text-[#0f7b79] transition-colors">
+                                    <span className="text-base leading-none">+</span> Agregar
+                                </button>
+                            )}
+                        </div>
+
+                        {noMeds ? (
+                            <p className="text-sm text-gray-400 italic py-2">Sin medicación registrada</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {medicamentos.map((med, index) => (
+                                    <div key={index}
+                                        className="grid grid-cols-2 gap-2 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                                        {/* Número de medicamento si hay más de uno */}
+                                        {medicamentos.length > 1 && (
+                                            <div className="col-span-2 flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-[#0f3460]/50 uppercase tracking-wider">
+                                                    Medicamento {index + 1}
+                                                </span>
+                                                <button type="button" onClick={() => removeMedicamento(index)}
+                                                        className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors">
+                                                    ✕ Quitar
+                                                </button>
+                                            </div>
+                                        )}
+                                        <input type="text" placeholder="Medicamento"
+                                            value={med.nombre}
+                                            onChange={(e) => updateMedicamento(index, 'nombre', e.target.value)}
+                                            className={inputCls} />
+                                        <input type="text" placeholder="Dosis"
+                                            value={med.dosis}
+                                            onChange={(e) => updateMedicamento(index, 'dosis', e.target.value)}
+                                            className={inputCls} />
+                                        <input type="text" placeholder="Frecuencia"
+                                            value={med.frecuencia}
+                                            onChange={(e) => updateMedicamento(index, 'frecuencia', e.target.value)}
+                                            className={inputCls} />
+                                        <input type="text" placeholder="Vía"
+                                            value={med.via}
+                                            onChange={(e) => updateMedicamento(index, 'via', e.target.value)}
+                                            className={inputCls} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <label className="flex items-center gap-2.5 pt-3 border-t border-gray-100 cursor-pointer mt-2">
+                            <input type="checkbox" name="noMedication"
+                                disabled={hasMedsText}
+                                checked={noMeds}
+                                onChange={(e) => {
+                                    setNoMeds(e.target.checked);
+                                    if (e.target.checked) {
+                                        setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
+                                    }
+                                }}
+                                className="w-4 h-4 rounded accent-[#0f3460] disabled:opacity-40" />
+                            <span className="text-sm font-medium text-gray-600">No usa medicamentos</span>
+                        </label>
+                    </Card>
                 </div>
             </div>
 
-            {/* MEDICACIÓN ESTRUCTURADA CON RESTRICCIONES */}
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-2 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">Medicación actual</label>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                    <input type="text" name="medName" placeholder="Nombre" disabled={noMeds} onChange={checkMedsInputs} className="border border-gray-300 rounded-md p-2 disabled:bg-gray-100" />
-                    <input type="text" name="medDose" placeholder="Dosis" disabled={noMeds} onChange={checkMedsInputs} className="border border-gray-300 rounded-md p-2 disabled:bg-gray-100" />
-                    <input type="text" name="medFreq" placeholder="Frecuencia" disabled={noMeds} onChange={checkMedsInputs} className="border border-gray-300 rounded-md p-2 disabled:bg-gray-100" />
-                    <input type="text" name="medRoute" placeholder="Vía" disabled={noMeds} onChange={checkMedsInputs} className="border border-gray-300 rounded-md p-2 disabled:bg-gray-100" />
+            {/* ══ SECCIÓN 5: HÁBITOS Y RED DE CUIDADOS ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faLeaf} />}>Hábitos y entorno</SectionTitle>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Hábitos */}
+                    <Card>
+                        <FieldLabel>Hábitos de vida</FieldLabel>
+                        <div className="space-y-3">
+                            {[
+                                ["smoking","Tabaquismo",["No","Exfumador","Sí"]],
+                                ["alcohol","Alcoholismo",["No","Social","Habitual"]],
+                                ["diet","Alimentación",["Balanceada","Deficiente","Hipergrasas"]]
+                            ].map(([name, label, opts]) => (
+                                <div key={name} className="flex items-center gap-3">
+                                    <span className="text-xs font-medium text-gray-500 w-24 shrink-0">{label}</span>
+                                    <div className="relative flex-1">
+                                        <select name={name} className={selectCls}>
+                                            {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                                        </select>
+                                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">▾</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    {/* Red de cuidados */}
+                    <Card>
+                        <FieldLabel>Red de cuidados</FieldLabel>
+                        <div className="grid grid-cols-1 gap-2.5">
+                            {[["Vive solo","Vive solo"],["Vive con familia","Vive con familia"],
+                              ["Cuidador primario","Tiene cuidador primario"],
+                              ["Apoyos comunitarios","Apoyos comunitarios"]].map(([val, label]) => (
+                                <RadioItem key={val} name="familySupport" value={val} label={label} />
+                            ))}
+                            <div className="pt-2 border-t border-gray-100">
+                                <RadioItem name="familySupport" value="Insuficiente o inexistente"
+                                           label="Red insuficiente o inexistente"
+                                           className="text-red-500 font-medium" />
+                            </div>
+                        </div>
+                    </Card>
                 </div>
-                <label className="flex items-center mt-2">
-                    <input type="checkbox" name="noMedication" disabled={hasMedsText} checked={noMeds} onChange={(e) => { setNoMeds(e.target.checked); if(e.target.checked) { document.querySelector('[name="medName"]').value = ''; document.querySelector('[name="medDose"]').value = ''; document.querySelector('[name="medFreq"]').value = ''; document.querySelector('[name="medRoute"]').value = ''; setHasMedsText(false); } }} className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0 disabled:opacity-50" />
-                    <span className="ml-2 font-medium">No usa medicamentos</span>
-                </label>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-1 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">Hábitos</label>
-                <div className="grid grid-cols-1 gap-4">
-                    <label className="flex flex-col"><span className="mb-1 text-gray-600">Tabaquismo:</span><select name="smoking" className="border-gray-300 rounded-md shadow-sm focus:border-blue-500"><option value="No">No</option><option value="Exfumador">Exfumador</option><option value="Sí">Sí</option></select></label>
-                    <label className="flex flex-col"><span className="mb-1 text-gray-600">Alcoholismo:</span><select name="alcohol" className="border-gray-300 rounded-md shadow-sm focus:border-blue-500"><option value="No">No</option><option value="Social">Social</option><option value="Habitual">Habitual</option></select></label>
-                    <label className="flex flex-col"><span className="mb-1 text-gray-600">Alimentación:</span><select name="diet" className="border-gray-300 rounded-md shadow-sm focus:border-blue-500"><option value="Balanceada">Balanceada</option><option value="Deficiente">Deficiente</option><option value="Hipergrasas">Hipergrasas</option></select></label>
-                </div>
-            </div>
-
-            {/* RED DE APOYO CON RADIO BUTTONS (Selección Única) */}
-            <div className="bg-white p-6 rounded-lg shadow-lg col-span-2 text-sm">
-                <label className="block font-medium text-gray-700 mb-4">Apoyo familiar o red de cuidados (Seleccione una)</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex items-center"><input type="radio" name="familySupport" value="Vive solo" className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 shrink-0" /><span className="ml-2">Vive solo</span></label>
-                    <label className="flex items-center"><input type="radio" name="familySupport" value="Vive con familia" className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 shrink-0" /><span className="ml-2">Vive con familia</span></label>
-                    <label className="flex items-center"><input type="radio" name="familySupport" value="Cuidador primario" className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 shrink-0" /><span className="ml-2">Tiene un cuidador primario</span></label>
-                    <label className="flex items-center"><input type="radio" name="familySupport" value="Apoyos comunitarios" className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 shrink-0" /><span className="ml-2">Apoyos comunitarios</span></label>
-                    <label className="flex items-center col-span-1 md:col-span-2 mt-2"><input type="radio" name="familySupport" value="Insuficiente o inexistente" className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 shrink-0" /><span className="ml-2 font-medium text-red-600">Red de cuidados insuficiente o inexistente</span></label>
-                </div>
-            </div>
-
-            <div className="flex justify-end gap-4 col-span-1 md:col-span-5 border-t pt-4">
-                <Button type="button" onClick={onCancel} variant="secondary">Cancelar</Button>
-                <Button type="submit">Guardar Paciente</Button>
+            {/* ── ACCIONES ── */}
+            <div className="flex flex-col sm:flex-row justify-end items-center gap-3 pt-4 border-t-2 border-[#0f3460]/10">
+                <span className="text-xs text-gray-400 mr-auto hidden sm:block">
+                    {selectedOption === "" ? "Se creará un nuevo paciente" : "Se actualizará el expediente existente"}
+                </span>
+                <button type="button" onClick={onCancel}
+                        className="w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primario text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all shadow-md shadow-[#0f3460]/20">
+                    {selectedOption === "" ? "Registrar paciente" : "Guardar cambios"}
+                </button>
             </div>
         </form>
     );
