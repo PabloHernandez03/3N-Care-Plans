@@ -10,6 +10,15 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const patients = await Patient.find();
+    res.json(patients);
+  } catch (error) {
+    res.status(500).json({ error: "Error obteniendo pacientes" });
+  }
+});
+
+router.get("/patients-with-admission", async (req, res) => {
+  try {
+    const patients = await Patient.find();
 
     // Una sola query para todos los últimos ingresos
     const ultimosIngresos = await Admission.aggregate([

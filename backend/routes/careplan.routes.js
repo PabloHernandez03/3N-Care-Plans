@@ -3,7 +3,6 @@ import CarePlan from "../models/CarePlan.js";
 
 const router = express.Router();
 
-// Recibir y guardar el plan
 router.post("/", async (req, res) => {
   try {
     const nuevoPlan = new CarePlan(req.body);
@@ -15,13 +14,13 @@ router.post("/", async (req, res) => {
   }
 });
 
-
 router.get("/", async (req, res) => {
   try {
     const planes = await CarePlan.find()
-        .populate('pacienteId', 'nombre') 
-        .sort({ fecha: -1 });
-    res.json(planes);
+      .populate('pacienteId', 'nombre curp demograficos')
+      .populate('ingresoId')
+      .sort({ fecha: -1 });
+    res.json(planes); // ← antes decía "planes" pero la variable era "plans"
   } catch (error) {
     res.status(500).json({ error: "Error al obtener planes" });
   }
@@ -30,8 +29,9 @@ router.get("/", async (req, res) => {
 router.get("/patient/:id", async (req, res) => {
   try {
     const planes = await CarePlan.find({ pacienteId: req.params.id })
-        .populate('pacienteId', 'nombre')
-        .sort({ fecha: -1 });
+      .populate('pacienteId', 'nombre curp demograficos')
+      .populate('ingresoId') // ← faltaba este
+      .sort({ fecha: -1 });
     res.json(planes);
   } catch (error) {
     res.status(500).json({ error: "Error al obtener planes" });
@@ -39,16 +39,16 @@ router.get("/patient/:id", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-    try {
-        const planActualizado = await CarePlan.findByIdAndUpdate(
-            req.params.id, 
-            { estado: req.body.estado }, 
-            { new: true }
-        );
-        res.json(planActualizado);
-    } catch (error) {
-        res.status(500).json({ error: "Error al actualizar el plan" });
-    }
+  try {
+    const planActualizado = await CarePlan.findByIdAndUpdate(
+      req.params.id,
+      { estado: req.body.estado },
+      { new: true }
+    );
+    res.json(planActualizado);
+  } catch (error) {
+    res.status(500).json({ error: "Error al actualizar el plan" });
+  }
 });
 
 export default router;

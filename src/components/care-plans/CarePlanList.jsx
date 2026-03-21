@@ -122,7 +122,11 @@ export default function CarePlanList({ patientId }) {
         
         // 2. Filtrar por búsqueda (nombre del paciente o nombre del NANDA)
         const textoBusqueda = searchTerm.toLowerCase();
-        const nombrePaciente = plan.pacienteId?.nombre?.toLowerCase() || '';
+        const nombrePaciente = [
+            plan.pacienteId?.nombre?.apellidoPaterno,
+            plan.pacienteId?.nombre?.apellidoMaterno,
+            plan.pacienteId?.nombre?.nombre
+        ].filter(Boolean).join(' ').toLowerCase();
         const nombreNanda = plan.nanda?.nombre?.toLowerCase() || '';
         
         const coincideBusqueda = nombrePaciente.includes(textoBusqueda) || nombreNanda.includes(textoBusqueda);
@@ -213,15 +217,20 @@ export default function CarePlanList({ patientId }) {
                                     <div className="flex-wrap items-center gap-4 text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-gray-500">Paciente:</span>
-                                            <span className="font-bold text-gray-800">{plan.pacienteId.nombre}</span>
+                                            <span className="font-bold text-gray-800">{[plan.pacienteId?.nombre?.apellidoPaterno,
+                                                plan.pacienteId?.nombre?.apellidoMaterno].filter(Boolean).join(' ')}
+                                                {', '}
+                                                {plan.pacienteId?.nombre?.nombre}
+                                            </span>
                                         </div>
-                                        {plan.pacienteId.ingreso?.servicioCama && (
+                                        {plan.ingresoId?.ingreso?.servicio && (
                                             <>
                                                 <div className="w-px h-4 bg-gray-300 hidden md:block"></div>
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-gray-500">Ubicación:</span>
                                                     <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                                                        {plan.pacienteId.ingreso.servicioCama}
+                                                        {plan.ingresoId.ingreso.servicio}
+                                                        {plan.ingresoId.ingreso.cama && ` / ${plan.ingresoId.ingreso.cama}`}
                                                     </span>
                                                 </div>
                                             </>
