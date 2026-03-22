@@ -1,7 +1,6 @@
-// PatientView.jsx
 import { useState } from 'react';
 import PatientList from '@/components/patients/PatientList';
-import CarePlanForm from '@/components/care-plans/CarePlanForm';
+import PatientForm from '@/components/patients/PatientForm';
 import Button from '@/components/shared/Button';
 
 export default function PatientsView() {
@@ -9,11 +8,9 @@ export default function PatientsView() {
     const [refreshKey, setRefreshKey] = useState(0);
 
     const handlePatientSaved = () => {
-        setRefreshKey(k => k + 1); // fuerza re-fetch en PatientList
+        setRefreshKey(k => k + 1);
         setActiveView('list');
     };
-
-    const handleCancel = () => setActiveView('list');
 
     return (
         <div className="space-y-6">
@@ -28,8 +25,8 @@ export default function PatientsView() {
 
             {activeView === 'patientForm' && (
                 <div className="animate-fade-in">
-                    <CarePlanForm
-                        onCancel={handleCancel}
+                    <PatientForm
+                        onCancel={() => setActiveView('list')}
                         onPatientSaved={handlePatientSaved}
                     />
                 </div>

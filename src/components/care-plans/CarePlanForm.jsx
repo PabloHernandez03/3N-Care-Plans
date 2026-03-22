@@ -146,7 +146,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
             nombre: {
                 nombre:          data.firstName,
                 apellidoPaterno: data.lastNameP,
-                apellidoMaterno: data.lastNameM || undefined
+                apellidoMaterno: data.lastNameM
             },
             curp: data.curp.toUpperCase(),
             demograficos: {
@@ -407,9 +407,9 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                                    className={inputCls} required={selectedOption === ""} />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400 mb-1">Apellido materno <span className="text-gray-300">(opcional)</span></p>
+                            <p className="text-xs text-gray-400 mb-1">Apellido materno</p>
                             <input id="lastNameM" name="lastNameM" type="text" placeholder="Ej. López"
-                                   className={inputCls} />
+                                   className={inputCls} required />
                         </div>
                     </div>
                 </Card>

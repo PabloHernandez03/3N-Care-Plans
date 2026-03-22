@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/patients-with-admission", async (req, res) => {
+router.get("/with-admission", async (req, res) => {
   try {
     const patients = await Patient.find();
 
