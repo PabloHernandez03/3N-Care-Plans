@@ -1,5 +1,4 @@
 import express from "express";
-import dotenv from "dotenv";
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,8 +11,6 @@ import diagnosisRoutes from "./routes/diagnosis.routes.js";
 import patientRoutes from "./routes/patient.routes.js";
 import carePlanRoutes from './routes/careplan.routes.js';
 import enfermeroRoutes from "./routes/enfermero.routes.js";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

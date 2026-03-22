@@ -2,11 +2,12 @@
   "name": "3n-care-plans",
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "start":   "node backend/server.js",
-    "dev":     "nodemon backend/server.js",
-    "build":   "vite build"
-  },
+"scripts": {
+    "start":      "node backend/server.js",
+    "dev":        "node --env-file=.env backend/server.js",
+    "dev:client": "vite",
+    "build":      "vite build"
+},
   "dependencies": {
     "@fortawesome/free-brands-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
