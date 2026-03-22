@@ -4,9 +4,10 @@ import {
   faClock, faSortAlphaDown, faSortAlphaUpAlt,
   faSortNumericDown, faSortNumericUpAlt,
   faIdCard, faArrowUp, faArrowDown,
-  faMagnifyingGlass
+  faMagnifyingGlass, faTrash
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -107,8 +108,8 @@ function PatientAvatar({ nombre, sexo, foto, size = "md" }) {
 
 // ── PatientCard ───────────────────────────────────────────────────────────────
 
-function PatientCard({ p, onSelect, isSelected }) {
-  // tipoSangre viene de demograficos; diagnostico del ingreso activo si viene populado
+function PatientCard({ p, onSelect, isSelected, onProfile, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const tipoSangre  = p.demograficos?.tipoSangre || null;
   const sexo        = p.demograficos?.sexo || p.sexo || '';
   const edad        = calcularEdad(p.demograficos?.fechaNacimiento);
@@ -125,11 +126,34 @@ function PatientCard({ p, onSelect, isSelected }) {
            }`}>
 
       {/* Menú tres puntos */}
-      <button onClick={e => e.stopPropagation()}
-              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors
+      <div className="absolute top-4 right-4">
+        <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            className={`p-1.5 rounded-lg transition-colors
                 ${isSelected ? 'text-white hover:bg-white/20' : 'text-gray-400 hover:bg-gray-100'}`}>
-        <FontAwesomeIcon icon={faEllipsisH} />
-      </button>
+            <FontAwesomeIcon icon={faEllipsisH} />
+        </button>
+
+        {menuOpen && (
+            <div
+                onClick={e => e.stopPropagation()}
+                className="absolute right-0 top-8 z-20 w-36 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm">
+                <button
+                    onClick={() => { setMenuOpen(false); onProfile(p); }}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faUserCircle} className="text-primario text-xs" />
+                    Ver perfil
+                </button>
+                <div className="mx-3 my-1 border-t border-gray-100" />
+                <button
+                    onClick={() => { setMenuOpen(false); onDelete(p); }}
+                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                    Eliminar
+                </button>
+            </div>
+        )}
+    </div>
 
       {/* Avatar + nombre */}
       <div className="flex flex-col items-center text-center mb-4">
@@ -189,18 +213,61 @@ function PatientCard({ p, onSelect, isSelected }) {
       <div className={`mt-3 pt-3 border-t flex items-center justify-between
         ${isSelected ? 'border-white/20' : 'border-gray-100'}`}>
         <span className={`text-[10px] uppercase tracking-wide font-medium
-          ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>
-          {sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Femenino' : 'Otro'}
+            ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>
+            {sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Femenino' : 'Otro'}
         </span>
-        <button className={`p-1.5 rounded-lg transition-colors
-          ${isSelected
-            ? 'bg-white/20 text-white hover:bg-white/30'
-            : 'bg-primario/10 text-primario hover:bg-primario/20'}`}>
-          <FontAwesomeIcon icon={faUserCircle} size="lg" />
+        <button
+            onClick={e => { e.stopPropagation(); onProfile(p); }}
+            className={`p-1.5 rounded-lg transition-colors
+                ${isSelected
+                    ? 'bg-white/20 text-white hover:bg-white/30'
+                    : 'bg-primario/10 text-primario hover:bg-primario/20'}`}>
+            <FontAwesomeIcon icon={faUserCircle} size="lg" />
         </button>
-      </div>
+    </div>
     </div>
   );
+}
+
+function RowMenu({ p, onProfile, onDelete }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                <FontAwesomeIcon icon={faEllipsisH} />
+            </button>
+
+            {open && (
+                <>
+                    {/* overlay invisible para cerrar al hacer clic fuera */}
+                    <div
+                        className="fixed inset-0 z-10"
+                        onClick={e => { e.stopPropagation(); setOpen(false); }}
+                    />
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        className="absolute right-0 top-9 z-20 w-36 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm">
+                        <button
+                            onClick={() => { setOpen(false); onProfile(p); }}
+                            className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faUserCircle} className="text-primario text-xs" />
+                            Ver perfil
+                        </button>
+                        <div className="mx-3 my-1 border-t border-gray-100" />
+                        <button
+                            onClick={() => { setOpen(false); onDelete(p); }}
+                            className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                            Eliminar
+                        </button>
+                    </div>
+                </>
+            )}
+        </>
+    );
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -214,6 +281,27 @@ export default function PatientCards({
   const [selected, setSelected] = useState(null);
   const [view, setView]         = useState('grid');
   const [search, setSearch]     = useState('');
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  function handleProfile(p) {
+    navigate(`/patients/${p._id}`);
+  }
+
+  function handleDeleteRequest(p) {
+    setConfirmDelete(p);
+  }
+
+  async function handleDeleteConfirm() {
+    try {
+        await axios.delete(`http://localhost:5000/api/patients/${confirmDelete._id}`);
+        onDeletePatient?.(confirmDelete._id);
+    } catch {
+        alert('No se pudo eliminar el paciente.');
+    } finally {
+        setConfirmDelete(null);
+    }
+  }
 
   const normalizeText = (text = '') =>
   text
@@ -356,11 +444,17 @@ export default function PatientCards({
       {/* Grid */}
       {view === 'grid' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {patients.map(p => (
-            <PatientCard key={p._id} p={p} onSelect={handleSelect} isSelected={selected === p._id} />
-          ))}
+            {patients.map(p => (
+                <PatientCard
+                    key={p._id} p={p}
+                    onSelect={handleSelect}
+                    isSelected={selected === p._id}
+                    onProfile={handleProfile}
+                    onDelete={handleDeleteRequest}   // ← nuevo
+                />
+            ))}
         </div>
-      )}
+    )}
 
       {/* Lista */}
       {view === 'list' && (
@@ -405,10 +499,8 @@ export default function PatientCards({
                     </span>
                   </span>
 
-                  <div className="sm:hidden flex justify-center">
-                    <button className="p-2 rounded-lg bg-primario/10 text-primario hover:bg-primario/20 transition-colors">
-                      <FontAwesomeIcon icon={faUserCircle} size="lg" />
-                    </button>
+                  <div className="sm:hidden flex justify-center relative">
+                      <RowMenu p={p} onProfile={handleProfile} onDelete={handleDeleteRequest} />
                   </div>
 
                   <span className="text-gray-500">
@@ -429,9 +521,9 @@ export default function PatientCards({
                   </span>
 
                   <div className="max-sm:hidden flex justify-center">
-                    <button className="p-2 rounded-lg bg-primario/10 text-primario hover:bg-primario/20 transition-colors">
-                      <FontAwesomeIcon icon={faUserCircle} size="lg" />
-                    </button>
+                    <div className="max-sm:hidden flex justify-center relative">
+                        <RowMenu p={p} onProfile={handleProfile} onDelete={handleDeleteRequest} />
+                    </div>
                   </div>
                 </div>
               );
@@ -510,6 +602,39 @@ export default function PatientCards({
           </div>
       </div>
       )}
+
+      {/* Modal de confirmación de eliminación */}
+      {confirmDelete && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => setConfirmDelete(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4"
+                onClick={e => e.stopPropagation()}>
+              <h3 className="text-base font-semibold text-gray-800 mb-1">
+                  ¿Eliminar paciente?
+              </h3>
+              <p className="text-sm text-gray-500 mb-5">
+                  Se eliminará permanentemente a{' '}
+                  <span className="font-medium text-gray-700">
+                      {confirmDelete.nombre?.apellidoPaterno} {confirmDelete.nombre?.nombre}
+                  </span>.
+                  Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3 justify-end">
+                  <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
+                      Cancelar
+                  </button>
+                  <button
+                      onClick={handleDeleteConfirm}
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 active:scale-95 transition-all">
+                      Eliminar
+                  </button>
+              </div>
+          </div>
+      </div>
+  )}
+
     </div>
   );
 }

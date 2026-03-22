@@ -68,6 +68,10 @@ export default function PatientList() {
         setPage(1);
     }
 
+    function handleDeletePatient(deleteId) {
+        setPatients(prev => prev.filter(p => p.id !== deleteId));
+    }
+
     return (
         <PatientCards
             allPatients={sorted}
@@ -80,6 +84,7 @@ export default function PatientList() {
             listPageSize={listPageSize}
             onPageSizeChange={handlePageSizeChange}
             onSelectPatient={(p) => console.log('Seleccionado:', p)}
+            onDeletePatient={handleDeletePatient}
         />
     );
 }

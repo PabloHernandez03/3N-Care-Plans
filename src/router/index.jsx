@@ -4,6 +4,7 @@ import Login from '../views/LoginView.jsx';
 import DashboardView from '../views/DashBoardView.jsx';
 import PatientsView from '../views/PatientsView.jsx';
 import CarePlansView from '../views/CarePlansView.jsx';
+import PatientProfileView from '../views/PatientProfileView.jsx';
 import ProfileView from '../views/ProfileView.jsx';
 import DictionaryView from '../views/DictionaryView.jsx';
 
@@ -21,6 +22,7 @@ export default function Router() {
                     <Route element={<AppLayout />}>
                         <Route path="/dashboard" element={<DashboardView />} />
                         <Route path="/patients" element={<PatientsView />} />
+                        <Route path="/patients/:id" element={<PatientProfileView />} />
                         <Route path="/care-plans" element={<CarePlansView />} />
                         <Route path="/profile" element={<ProfileView />} />
                         <Route path="/dictionary" element={<DictionaryView />} />
