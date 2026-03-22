@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios'; 
+import axios from 'axios';
+import logo from '@/assets/logo.png'
 
 const carouselData = [
     {
@@ -77,7 +78,7 @@ const LoginView = () => {
                     </h1>
                     {/* Logo */}
                     <div className="ml-auto">
-                        <img src="/img/logo.png" alt="Logo" className="h-12 rounded-full shadow-sm" />
+                        <img src={logo} alt="Logo" className="h-12 rounded-full shadow-sm" />
                     </div>
                 </div>
                 
