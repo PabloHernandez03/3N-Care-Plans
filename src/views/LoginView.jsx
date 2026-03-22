@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import logo from '@/assets/logo.png'
+import axios from 'axios'; 
 
 const carouselData = [
     {
@@ -48,7 +47,7 @@ const LoginView = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/enfermero/login`, {
+            const response = await axios.post('http://localhost:5000/api/enfermero/login', {
                 email: email,
                 password: password
             });
@@ -78,7 +77,7 @@ const LoginView = () => {
                     </h1>
                     {/* Logo */}
                     <div className="ml-auto">
-                        <img src={logo} alt="Logo" className="h-12 rounded-full shadow-sm" />
+                        <img src="/img/logo.png" alt="Logo" className="h-12 rounded-full shadow-sm" />
                     </div>
                 </div>
                 
