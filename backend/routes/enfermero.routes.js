@@ -26,13 +26,13 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Contraseña incorrecta" });
     }
 
+    const datosUsuario = enfermero.toObject();
+
+    delete datosUsuario.cuenta.password_hash;
 
     res.json({
       mensaje: "Bienvenido al sistema",
-      user: {
-        nombre: enfermero.identidad.nombre,
-        unidad: enfermero.datos_laborales.unidad_hospitalaria
-      }
+      user: datosUsuario 
     });
 
   } catch (error) {

@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 const enfermeroSchema = new mongoose.Schema({
   cuenta: {
-    correo_electronico: { type: String, required: true, unique: true },
+    id_interno: { type: Number, unique: true },
+    correo_electronico: { type: String, required: true},
     password_hash: { type: String, required: true },
     rol: { type: String, default: "enfermero" },
     estado_cuenta: { type: String, default: "activo" }
