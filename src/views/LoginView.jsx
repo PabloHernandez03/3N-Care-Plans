@@ -20,13 +20,18 @@ const carouselData = [
 const LoginView = () => {
     const navigate = useNavigate();
     
-    // Estados para el formulario y login
-    const [email, setEmail] = useState(''); // Usaremos el correo como 'username'
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(''); // Estado para mostrar errores del backend
-    const [loading, setLoading] = useState(false); // Estado para deshabilitar el botón al cargar
-    
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const [carouselIndex, setCarouselIndex] = useState(0);
+
+    // --- NUEVO: LIMPIEZA AL REGRESAR AL LOGIN ---
+    useEffect(() => {
+        // Al cargar esta vista, borramos cualquier rastro de usuario
+        sessionStorage.removeItem('user');
+        localStorage.removeItem('user'); // Por si quedó algo de pruebas anteriores
+    }, []);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -36,11 +41,10 @@ const LoginView = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Lógica de Conexión al Backend
     const handleLogin = async (e) => {
         e.preventDefault();
-        setError(''); // Limpiar errores previos
-        setLoading(true); // Activar estado de carga
+        setError('');
+        setLoading(true);
 
         try {
             const response = await axios.post('http://localhost:5000/api/enfermero/login', {
@@ -49,8 +53,9 @@ const LoginView = () => {
             });
 
             if (response.data) {
-                // Login exitoso: Guardamos los datos básicos del usuario en localStorage
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+                // --- CAMBIO: sessionStorage en lugar de localStorage ---
+                // Esto hace que los datos se borren al cerrar la pestaña
+                sessionStorage.setItem('user', JSON.stringify(response.data.user));
                 
                 navigate('/dashboard');
             }
