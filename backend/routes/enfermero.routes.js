@@ -8,7 +8,6 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log("1. Intento de login para:", email);
-    console.log("2. Contraseña escrita en el formulario:", password);
     const enfermero = await Enfermero.findOne({ "cuenta.correo_electronico": email });
 
     if (!enfermero) {
@@ -17,12 +16,9 @@ router.post("/login", async (req, res) => {
 
     console.log("3. Hash almacenado en la DB:", enfermero.cuenta.password_hash);
 
-
     const salt = await bcrypt.genSalt(10);
     const hashGeneradoAhora = await bcrypt.hash(password, salt);
-    console.log("4. Hash generado de lo que escribiste (nuevo salt):", hashGeneradoAhora);
     
-
     const coinciden = await bcrypt.compare(password, enfermero.cuenta.password_hash);
     console.log("5. ¿Coinciden según bcrypt?:", coinciden);
     
