@@ -5,7 +5,7 @@ const patientSchema = new mongoose.Schema({
   nombre: {
     nombre:          { type: String, required: true },
     apellidoPaterno: { type: String, required: true },
-    apellidoMaterno: { type: String }
+    apellidoMaterno: { type: String, required: true }
   },
 
   curp: { type: String, required: true, unique: true },
