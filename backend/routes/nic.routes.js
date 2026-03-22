@@ -40,4 +40,14 @@ router.get("/:codigo", async (req, res) => {
   }
 });
 
+router.get("/", async (req, res) => {
+  try {
+    const lista = await Nic.find().select("codigo nombre dominio clase definicion actividades");
+    res.json(lista);
+  } catch (error) {
+    console.error("Error en GET /nic:", error);
+    res.status(500).json({ error: "Error obteniendo NIC" });
+  }
+});
+
 export default router;

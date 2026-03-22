@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const lista = await Nanda.find().select("codigo nombre dominio clase definicion");
+    const lista = await Nanda.find().select("codigo nombre dominio clase definicion caracteristicas_definitorias factores_relacionados factores_riesgo poblacion_en_riesgo problemas_asociados");
     res.json(lista);
   } catch (error) {
     res.status(500).json({ error: "Error obteniendo NANDA" });

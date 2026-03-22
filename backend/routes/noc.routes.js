@@ -101,4 +101,14 @@ router.get("/:codigo", async (req, res) => {
     }
 });
 
+router.get("/", async (req, res) => {
+  try {
+    const lista = await Noc.find().select("codigo nombre dominio clase definicion indicadores");
+    res.json(lista);
+  } catch (error) {
+    console.error("Error en GET /noc:", error);
+    res.status(500).json({ error: "Error obteniendo NOC" });
+  }
+});
+
 export default router;
