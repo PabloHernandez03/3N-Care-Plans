@@ -294,7 +294,7 @@ export default function PatientCards({
 
   async function handleDeleteConfirm() {
     try {
-        await axios.delete(`http://localhost:5000/api/patients/${confirmDelete._id}`);
+        await axios.delete(`${import.meta.env.VITE_API_URL}/api/patients/${confirmDelete._id}`);
         onDeletePatient?.(confirmDelete._id);
     } catch {
         alert('No se pudo eliminar el paciente.');

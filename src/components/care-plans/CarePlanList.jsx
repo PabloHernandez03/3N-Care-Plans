@@ -22,9 +22,9 @@ export default function CarePlanList({ patientId }) {
             setIsLoading(true);
             try {
                 const endpoint = patientId 
-                    ? `http://localhost:5000/api/careplans/patient/${patientId}` 
-                    : `http://localhost:5000/api/careplans`;
-                    
+                    ? `${import.meta.env.VITE_API_URL}/api/careplans/patient/${patientId}` 
+                    : `${import.meta.env.VITE_API_URL}/api/careplans`;
+
                 const response = await fetch(endpoint);
                 
                 if (response.ok) {
@@ -48,7 +48,7 @@ export default function CarePlanList({ patientId }) {
     const fetchNocName = async (codigo) => {
         if (nocNames[codigo]) return; 
         try {
-            const res = await fetch(`http://localhost:5000/api/noc/${codigo}`);
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/${codigo}`);
             if (res.ok) {
                 const data = await res.json();
                 setNocNames(prev => ({ ...prev, [codigo]: data.nombre }));
@@ -65,7 +65,7 @@ export default function CarePlanList({ patientId }) {
         if (!confirmar) return;
 
         try {
-            const response = await fetch(`http://localhost:5000/api/careplans/${planId}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans/${planId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ estado: 'Finalizado' })
@@ -95,7 +95,7 @@ export default function CarePlanList({ patientId }) {
 
         setIsLoadingModal(true);
         try {
-            const response = await fetch(`http://localhost:5000/api/nic/${nic.codigo}`);
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/${nic.codigo}`);
             if (response.ok) {
                 const data = await response.json();
                 setNicActivities(prev => ({ ...prev, [nic.codigo]: data.actividades || [] }));
