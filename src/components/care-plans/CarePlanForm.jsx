@@ -105,7 +105,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
     const [edadMostrada, setEdadMostrada]       = useState(null);
 
     useEffect(() => {
-        fetch('http://localhost:5000/api/patients')
+        fetch(`${import.meta.env.VITE_API_URL}/api/patients`)
             .then(r => r.json())
             .then(setPatientList)
             .catch(err => console.error("Error al cargar pacientes:", err));
@@ -203,7 +203,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
             if (curpExists) { alert("Ya existe un registro con esta CURP."); return; }
             try {
-                const res = await fetch('http://localhost:5000/api/patients', {
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(patientPayload)
                 });
@@ -212,11 +212,11 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
             } catch { alert("No se pudo conectar con el servidor."); }
         } else {
             try {
-                await fetch(`http://localhost:5000/api/patients/${selectedOption}`, {
+                await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
                 });
-                const expRes = await fetch(`http://localhost:5000/api/patients/${selectedOption}/expediente`, {
+                const expRes = await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
@@ -274,7 +274,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
         });
         document.getElementById("admissionTime").value = "";
 
-        fetch(`http://localhost:5000/api/patients/${id}`)
+        fetch(`${import.meta.env.VITE_API_URL}/api/patients/${id}`)
             .then(r => r.json())
             .then(({ clinicalRecord }) => {
                 if (!clinicalRecord) return;

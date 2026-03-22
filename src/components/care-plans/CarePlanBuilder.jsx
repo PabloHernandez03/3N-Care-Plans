@@ -23,7 +23,7 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
     useEffect(() => {
         const fetchNandas = async () => {
             try {
-                const res = await fetch('http://localhost:5000/api/nanda');
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda`);
                 const data = await res.json();
                 const agrupado = data.reduce((acc, curr) => {
                     const domName = curr.dominio ? `Dominio - ${curr.dominio.nombre}` : "Sin Dominio Definido";
@@ -48,7 +48,7 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
         if (value.length < 3) return setSearchResults([]);
         setIsSearching(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/nanda/search/${value}`);
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda/search/${value}`);
             if (res.ok) setSearchResults(await res.json());
         } catch (error) { console.error(error); } 
         finally { setIsSearching(false); }
@@ -63,17 +63,17 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
         setSelectedNics([]); 
         
         try {
-            const res = await fetch(`http://localhost:5000/api/noc/from-nanda/${nanda.codigo}`);
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/from-nanda/${nanda.codigo}`);
             if (res.ok) {
                 const data = await res.json();
                 setNocsSugeridos(data.noc_sugeridos);
             }
             
-            const resMapa = await fetch(`http://localhost:5000/api/diagnosis/${nanda.codigo}`);
+            const resMapa = await fetch(`${import.meta.env.VITE_API_URL}/api/diagnosis/${nanda.codigo}`);
             if(resMapa.ok) {
                 const mapaData = await resMapa.json();
                 const codigosNic = mapaData.nic_sugeridos.map(n => n.codigo);
-                const resNic = await fetch(`http://localhost:5000/api/nic/list`, {
+                const resNic = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/list`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ codigos: codigosNic })
@@ -209,7 +209,7 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
         };
 
         try {
-            const response = await fetch('http://localhost:5000/api/careplans', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payloadPlan)

@@ -46,7 +46,7 @@ export default function PatientList() {
     const [listPageSize, setListPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     useEffect(() => {
-        axios.get("http://localhost:5000/api/patients/with-admission")
+        axios.get(`${import.meta.env.VITE_API_URL}/api/patients/with-admission`)
             .then(res => setPatients(res.data))
             .catch(err => console.error("Error al cargar pacientes:", err));
     }, []);

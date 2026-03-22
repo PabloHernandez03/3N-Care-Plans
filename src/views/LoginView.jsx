@@ -47,7 +47,7 @@ const LoginView = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:5000/api/enfermero/login', {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/enfermero/login`, {
                 email: email,
                 password: password
             });

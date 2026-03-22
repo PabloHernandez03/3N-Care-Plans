@@ -113,7 +113,7 @@ export default function PatientProfileView() {
     const [error, setError]     = useState('');
 
     useEffect(() => {
-        axios.get(`http://localhost:5000/api/patients/${id}`)
+        axios.get(`${import.meta.env.VITE_API_URL}/api/patients/${id}`)
             .then(res => {
                 setData({
                     patient:        res.data.patient        || res.data,
