@@ -1,5 +1,10 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisH, faTh, faList, faUserCircle } from '@fortawesome/free-solid-svg-icons';
+import {
+  faEllipsisH, faTh, faList, faUserCircle,
+  faClock, faSortAlphaDown, faSortAlphaUpAlt,
+  faSortNumericDown, faSortNumericUpAlt,
+  faIdCard, faArrowUp, faArrowDown
+} from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,6 +46,41 @@ function calcularEdad(fechaNacimiento) {
   if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
   return edad;
 }
+
+const SORT_OPTIONS = [
+    {
+        key:      'reciente',
+        labelAsc: 'Más recientes',
+        labelDesc:'Más antiguos',
+        iconAsc:  <FontAwesomeIcon icon={faClock} />,
+        iconDesc: <FontAwesomeIcon icon={faClock} className="opacity-60" />,
+        tooltip:  'Fecha de registro',
+    },
+    {
+        key:      'nombre',
+        labelAsc: 'Nombre A→Z',
+        labelDesc:'Nombre Z→A',
+        iconAsc:  <FontAwesomeIcon icon={faSortAlphaDown} />,
+        iconDesc: <FontAwesomeIcon icon={faSortAlphaUpAlt} />,
+        tooltip:  'Ordenar por nombre',
+    },
+    {
+        key:      'apellido',
+        labelAsc: 'Apellido A→Z',
+        labelDesc:'Apellido Z→A',
+        iconAsc:  <FontAwesomeIcon icon={faIdCard} />,
+        iconDesc: <FontAwesomeIcon icon={faIdCard} className="opacity-60" />,
+        tooltip:  'Ordenar por apellido',
+    },
+    {
+        key:      'edad',
+        labelAsc: 'Más jóvenes',
+        labelDesc:'Más mayores',
+        iconAsc:  <FontAwesomeIcon icon={faSortNumericDown} />,
+        iconDesc: <FontAwesomeIcon icon={faSortNumericUpAlt} />,
+        tooltip:  'Ordenar por edad',
+    },
+];
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
 
@@ -164,7 +204,7 @@ function PatientCard({ p, onSelect, isSelected }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function PatientCards({ patients = [], onSelectPatient }) {
+export default function PatientCards({ patients = [], onSelectPatient, sort, sortDir = 'asc', onSortChange }) {
   const [selected, setSelected] = useState(null);
   const [view, setView]         = useState('grid');
 
@@ -173,21 +213,72 @@ export default function PatientCards({ patients = [], onSelectPatient }) {
     onSelectPatient?.(p);
   }
 
+  function handleSortClick(key) {
+    if (sort === key) {
+      onSortChange?.(key, sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      onSortChange?.(key, 'asc');
+    }
+  }
+
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-800">
-          Pacientes <span className="text-gray-400 font-normal text-base">({patients.length})</span>
+          Pacientes{' '}
+          <span className="text-gray-400 font-normal text-base">({patients.length})</span>
         </h2>
-        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
-          {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
-            <button key={v} onClick={() => setView(v)}
-                    className={`p-1.5 rounded-md transition-colors
-                      ${view === v ? 'bg-white shadow-sm text-primario' : 'text-gray-400 hover:text-gray-600'}`}>
-              <FontAwesomeIcon icon={icon} size="sm" />
-            </button>
-          ))}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
+              const isActive  = sort === key;
+              const isDesc    = isActive && sortDir === 'desc';
+              const label     = isDesc ? labelDesc : labelAsc;
+              const icon      = isDesc ? iconDesc  : iconAsc;
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleSortClick(key)}
+                  title={tooltip}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                    border transition-all duration-150 select-none
+                    ${isActive
+                      ? 'bg-primario text-white border-primario shadow-sm'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-primario/40 hover:text-primario'
+                    }`}>
+
+                  {/* Ícono siempre visible */}
+                  <span className="text-sm leading-none">{icon}</span>
+
+                  {/* Label solo en sm+ */}
+                  <span className="hidden sm:inline">{label}</span>
+
+                  {/* Flecha de dirección solo cuando está activo, visible en sm+ */}
+                  {isActive && (
+                    <span className="hidden sm:inline text-[10px] opacity-80 leading-none">
+                      <FontAwesomeIcon icon={isDesc ? faArrowUp : faArrowDown} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+            {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
+              <button key={v} onClick={() => setView(v)}
+                      className={`p-1.5 rounded-md transition-colors
+                        ${view === v
+                          ? 'bg-white shadow-sm text-primario'
+                          : 'text-gray-400 hover:text-gray-600'}`}>
+                <FontAwesomeIcon icon={icon} size="sm" />
+              </button>
+            ))}
+          </div>
+          
         </div>
       </div>
 
@@ -210,11 +301,12 @@ export default function PatientCards({ patients = [], onSelectPatient }) {
                             grid-cols-[3fr_1fr_1fr_3fr_1fr_1fr]
                             gap-4 text-xs font-semibold text-gray-400 uppercase tracking-wide items-center">
               <span>Paciente</span>
+              <span className="sm:hidden" />
               <span>Sexo</span>
               <span>Edad</span>
               <span>Diagnóstico preliminar</span>
               <span>Sangre</span>
-              <span />
+              <span className="max-sm:hidden" />
             </div>
 
             {/* Filas */}
@@ -242,6 +334,12 @@ export default function PatientCards({ patients = [], onSelectPatient }) {
                     </span>
                   </span>
 
+                  <div className="sm:hidden flex justify-center">
+                    <button className="p-2 rounded-lg bg-primario/10 text-primario hover:bg-primario/20 transition-colors">
+                      <FontAwesomeIcon icon={faUserCircle} size="lg" />
+                    </button>
+                  </div>
+
                   <span className="text-gray-500">
                     {sexo === 'M' ? 'Masc.' : sexo === 'F' ? 'Fem.' : 'Otro'}
                   </span>
@@ -259,7 +357,7 @@ export default function PatientCards({ patients = [], onSelectPatient }) {
                     </span>
                   </span>
 
-                  <div className="flex justify-center">
+                  <div className="max-sm:hidden flex justify-center">
                     <button className="p-2 rounded-lg bg-primario/10 text-primario hover:bg-primario/20 transition-colors">
                       <FontAwesomeIcon icon={faUserCircle} size="lg" />
                     </button>
