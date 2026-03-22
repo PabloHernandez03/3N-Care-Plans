@@ -3,9 +3,10 @@ import {
   faEllipsisH, faTh, faList, faUserCircle,
   faClock, faSortAlphaDown, faSortAlphaUpAlt,
   faSortNumericDown, faSortNumericUpAlt,
-  faIdCard, faArrowUp, faArrowDown
+  faIdCard, faArrowUp, faArrowDown,
+  faMagnifyingGlass
 } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -204,9 +205,47 @@ function PatientCard({ p, onSelect, isSelected }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function PatientCards({ patients = [], onSelectPatient, sort, sortDir = 'asc', onSortChange }) {
+export default function PatientCards({
+    allPatients = [], onSelectPatient,
+    sort, sortDir, onSortChange,
+    page, onPageChange,
+    gridPageSize, listPageSize, onPageSizeChange,
+}) {
   const [selected, setSelected] = useState(null);
   const [view, setView]         = useState('grid');
+  const [search, setSearch]     = useState('');
+
+  const normalizeText = (text = '') =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+    const getTokens = (text) =>
+    normalizeText(text)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const filtered = useMemo(() => {
+      const tokens = getTokens(search);
+      if (!tokens.length) return allPatients;
+
+      return allPatients.filter(p => {
+        const full = normalizeText(`
+          ${p.nombre?.nombre}
+          ${p.nombre?.apellidoPaterno}
+          ${p.nombre?.apellidoMaterno}
+          ${p.curp}
+        `);
+
+        return tokens.every(token => full.includes(token));
+      });
+    }, [allPatients, search]);
+
+    const pageSize   = view === 'grid' ? gridPageSize : listPageSize;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const patients   = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   function handleSelect(p) {
     setSelected(p._id);
@@ -221,65 +260,97 @@ export default function PatientCards({ patients = [], onSelectPatient, sort, sor
     }
   }
 
+  function handleViewChange(v) {
+    setView(v);
+    onPageChange?.(1);
+  }
+
   return (
     <div>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Pacientes{' '}
-          <span className="text-gray-400 font-normal text-base">({patients.length})</span>
-        </h2>
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col gap-2 mb-4">
+          {/* Fila 1: Buscador */}
+          <div className="relative">
+              <FontAwesomeIcon
+                  icon={faMagnifyingGlass}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"
+              />
+              <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); onPageChange?.(1); }}
+                  placeholder="Buscar por nombre, apellido o CURP…"
+                  className="w-full pl-8 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm
+                            text-gray-800 placeholder-gray-400 transition
+                            focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20"
+              />
+              {search && (
+                  <button
+                      onClick={() => { setSearch(''); onPageChange?.(1); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition text-xs">
+                      ✕
+                  </button>
+              )}
+          </div>
+          {/* Fila 2: Ordenamiento + vista */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-gray-400 font-normal text-sm">
+              {filtered.length === 0
+                  ? <span className="text-xs text-gray-400 italic">Sin resultados para "{search}"</span>
+                  : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filtered.length)} de ${filtered.length}`
+              }
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
-              const isActive  = sort === key;
-              const isDesc    = isActive && sortDir === 'desc';
-              const label     = isDesc ? labelDesc : labelAsc;
-              const icon      = isDesc ? iconDesc  : iconAsc;
+              {/* Botones de orden */}
+              <div className="flex flex-wrap gap-1.5">
+                  {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
+                      const isActive = sort === key;
+                      const isDesc   = isActive && sortDir === 'desc';
+                      return (
+                          <button
+                              key={key}
+                              onClick={() => handleSortClick(key)}
+                              title={tooltip}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                                  border transition-all duration-150 select-none
+                                  ${isActive
+                                      ? 'bg-primario text-white border-primario shadow-sm'
+                                      : 'bg-white text-gray-500 border-gray-200 hover:border-primario/40 hover:text-primario'
+                                  }`}>
+                              <span className="text-sm leading-none">
+                                  {isDesc ? iconDesc : iconAsc}
+                              </span>
+                              <span className="hidden sm:inline">
+                                  {isDesc ? labelDesc : labelAsc}
+                              </span>
+                              {isActive && (
+                                  <span className="hidden sm:inline text-[10px] opacity-80 leading-none">
+                                      <FontAwesomeIcon icon={isDesc ? faArrowUp : faArrowDown} />
+                                  </span>
+                              )}
+                          </button>
+                      );
+                  })}
+              </div>
 
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleSortClick(key)}
-                  title={tooltip}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                    border transition-all duration-150 select-none
-                    ${isActive
-                      ? 'bg-primario text-white border-primario shadow-sm'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-primario/40 hover:text-primario'
-                    }`}>
-
-                  {/* Ícono siempre visible */}
-                  <span className="text-sm leading-none">{icon}</span>
-
-                  {/* Label solo en sm+ */}
-                  <span className="hidden sm:inline">{label}</span>
-
-                  {/* Flecha de dirección solo cuando está activo, visible en sm+ */}
-                  {isActive && (
-                    <span className="hidden sm:inline text-[10px] opacity-80 leading-none">
-                      <FontAwesomeIcon icon={isDesc ? faArrowUp : faArrowDown} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+              {/* Toggle vista */}
+              <div className="flex bg-gray-100 rounded-lg p-1 gap-1 shrink-0">
+                  {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
+                      <button key={v} onClick={() => handleViewChange(v)}
+                              className={`p-1.5 rounded-md transition-colors
+                                  ${view === v
+                                      ? 'bg-white shadow-sm text-primario'
+                                      : 'text-gray-400 hover:text-gray-600'}`}>
+                          <FontAwesomeIcon icon={icon} size="sm" />
+                      </button>
+                  ))}
+              </div>
           </div>
 
-          <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
-            {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
-              <button key={v} onClick={() => setView(v)}
-                      className={`p-1.5 rounded-md transition-colors
-                        ${view === v
-                          ? 'bg-white shadow-sm text-primario'
-                          : 'text-gray-400 hover:text-gray-600'}`}>
-                <FontAwesomeIcon icon={icon} size="sm" />
-              </button>
-            ))}
           </div>
-          
-        </div>
       </div>
 
       {/* Grid */}
@@ -367,6 +438,77 @@ export default function PatientCards({ patients = [], onSelectPatient, sort, sor
             })}
           </div>
         </div>
+      )}
+
+      {/* Paginación */}
+      {filtered.length > 0 && (
+      <div className="flex flex-wrap items-center justify-center md:justify-between gap-3 mt-6 pt-4 border-t border-gray-100">
+
+          {/* Selector de cantidad por página */}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>Mostrar</span>
+              {[10, 20, 50].map(n => (
+                  <button
+                      key={n}
+                      onClick={() => onPageSizeChange?.(view, n)}
+                      className={`w-9 h-7 rounded-md border text-xs font-semibold transition-all
+                          ${pageSize === n
+                              ? 'bg-primario text-white border-primario'
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-primario/40 hover:text-primario'
+                          }`}>
+                      {n}
+                  </button>
+              ))}
+              <span>por página</span>
+          </div>
+
+          {/* Navegación */}
+          <div className="flex items-center gap-1">
+              {/* Anterior */}
+              <button
+                  onClick={() => onPageChange?.(page - 1)}
+                  disabled={page === 1}
+                  className="px-3 h-8 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500
+                      hover:border-primario/40 hover:text-primario disabled:opacity-30 disabled:cursor-not-allowed
+                      transition-all bg-white">
+                  ← Anterior
+              </button>
+
+              {/* Páginas */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                  .reduce((acc, n, idx, arr) => {
+                      if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                      acc.push(n);
+                      return acc;
+                  }, [])
+                  .map((item, idx) =>
+                      item === '…'
+                          ? <span key={`gap-${idx}`} className="px-1 text-gray-300 text-xs">…</span>
+                          : <button
+                              key={item}
+                              onClick={() => onPageChange?.(item)}
+                              className={`w-8 h-8 rounded-lg border text-xs font-semibold transition-all
+                                  ${page === item
+                                      ? 'bg-primario text-white border-primario shadow-sm'
+                                      : 'bg-white text-gray-500 border-gray-200 hover:border-primario/40 hover:text-primario'
+                                  }`}>
+                              {item}
+                            </button>
+                  )
+              }
+
+              {/* Siguiente */}
+              <button
+                  onClick={() => onPageChange?.(page + 1)}
+                  disabled={page === totalPages}
+                  className="px-3 h-8 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500
+                      hover:border-primario/40 hover:text-primario disabled:opacity-30 disabled:cursor-not-allowed
+                      transition-all bg-white">
+                  Siguiente →
+              </button>
+          </div>
+      </div>
       )}
     </div>
   );

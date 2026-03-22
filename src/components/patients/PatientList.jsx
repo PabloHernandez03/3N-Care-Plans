@@ -23,7 +23,6 @@ function sortPatients(patients, sort, dir) {
             return arr.sort((a, b) => {
                 const fa = new Date(a.demograficos?.fechaNacimiento || 0);
                 const fb = new Date(b.demograficos?.fechaNacimiento || 0);
-                // asc = más jóvenes primero = fecha más reciente primero
                 return asc ? fb - fa : fa - fb;
             });
 
@@ -36,10 +35,15 @@ function sortPatients(patients, sort, dir) {
     }
 }
 
+const DEFAULT_PAGE_SIZE = 20;
+
 export default function PatientList() {
     const [patients, setPatients] = useState([]);
     const [sort, setSort]         = useState('reciente');
     const [sortDir, setSortDir]   = useState('asc');
+    const [page, setPage]               = useState(1);
+    const [gridPageSize, setGridPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [listPageSize, setListPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     useEffect(() => {
         axios.get("http://localhost:5000/api/patients/with-admission")
@@ -55,14 +59,26 @@ export default function PatientList() {
     function handleSortChange(key, dir) {
         setSort(key);
         setSortDir(dir);
+        setPage(1);
+    }
+
+    function handlePageSizeChange(view, size) {
+        if (view === 'grid') setGridPageSize(size);
+        else setListPageSize(size);
+        setPage(1);
     }
 
     return (
         <PatientCards
-            patients={sorted}
+            allPatients={sorted}
             sort={sort}
             sortDir={sortDir}
             onSortChange={handleSortChange}
+            page={page}
+            onPageChange={setPage}
+            gridPageSize={gridPageSize}
+            listPageSize={listPageSize}
+            onPageSizeChange={handlePageSizeChange}
             onSelectPatient={(p) => console.log('Seleccionado:', p)}
         />
     );
