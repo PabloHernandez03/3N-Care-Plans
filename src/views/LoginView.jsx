@@ -46,18 +46,36 @@ const LoginView = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/enfermero/login`, {
-                email: email,
-                password: password
-            });
+            let response;
+            
+            try {
+                response = await axios.post(`${import.meta.env.VITE_API_URL}/api/enfermero/login`, {
+                    email,
+                    password
+                });
+            } catch (err) {
+                if (err.response && err.response.status === 404) {
+                    response = await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/login`, {
+                        email,
+                        password
+                    });
+                } else {
+                    throw err; 
+                }
+            }
 
-            if (response.data) {
-                sessionStorage.setItem('user', JSON.stringify(response.data.user));
-                
-                navigate('/dashboard');
+            if (response.data && response.data.user) {
+                const userData = response.data.user;
+                sessionStorage.setItem('user', JSON.stringify(userData));
+
+                if (userData.cuenta.rol === 'admin') {
+                    navigate('/admin-dashboard'); 
+                } else {
+                    navigate('/dashboard');
+                }
             }
         } catch (err) {
-            const mensajeError = err.response?.data?.error || 'Error al conectar con el servidor. Intenta más tarde.';
+            const mensajeError = err.response?.data?.error || 'Error de autenticación.';
             setError(mensajeError);
         } finally {
             setLoading(false); 

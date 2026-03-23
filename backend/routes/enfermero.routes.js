@@ -57,4 +57,13 @@ router.get("/perfil/:id", async (req, res) => {
   }
 });
 
+router.get("/todos", async (req, res) => {
+    try {
+        const todosLosEnfermeros = await Enfermero.find().select("-cuenta.password_hash");
+        res.json(todosLosEnfermeros);
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener enfermeros" });
+    }
+});
+
 export default router;

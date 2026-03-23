@@ -11,6 +11,7 @@ import diagnosisRoutes from "./routes/diagnosis.routes.js";
 import patientRoutes from "./routes/patient.routes.js";
 import carePlanRoutes from './routes/careplan.routes.js';
 import enfermeroRoutes from "./routes/enfermero.routes.js";
+import adminRoutes from "./routes/administrador.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -18,7 +19,7 @@ const __dirname  = path.dirname(__filename);
 const app = express();
 
 app.use(cors());
-app.use(express.json()); // solo una vez
+app.use(express.json()); 
 
 connectDB();
 
@@ -29,6 +30,7 @@ app.use("/api/diagnosis", diagnosisRoutes);
 app.use('/api/patients',  patientRoutes);
 app.use('/api/careplans', carePlanRoutes);
 app.use('/api/enfermero', enfermeroRoutes);
+app.use('/api/admin',     adminRoutes);
 
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {

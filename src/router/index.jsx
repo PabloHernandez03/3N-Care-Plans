@@ -7,25 +7,36 @@ import CarePlansView from '../views/CarePlansView.jsx';
 import PatientProfileView from '../views/PatientProfileView.jsx';
 import ProfileView from '../views/ProfileView.jsx';
 import DictionaryView from '../views/DictionaryView.jsx';
+import AdminDashboardView from '../views/AdminDashboardView.jsx';
 
 import ProtegerRutas from '../components/auth/ProtegerRutas.jsx';
+// AQUÍ ESTABA EL PROBLEMA: Faltaba importar la ruta que acabamos de crear
+import AdminRoute from '../components/auth/AdminRoute.jsx'; 
 
 export default function Router() {
     return (
         <BrowserRouter>
             <Routes>
-                {/*Ruta pública*/}
+                {/* Ruta pública */}
                 <Route path="/" element={<Login />} />
 
-                {/*vistas privadas con ProtegerRutas */}
+                {/* Vistas privadas con ProtegerRutas */}
                 <Route element={<ProtegerRutas />}>
                     <Route element={<AppLayout />}>
+                        
+                        {/* RUTAS COMPARTIDAS (Enfermeros y Admins) */}
                         <Route path="/dashboard" element={<DashboardView />} />
                         <Route path="/patients" element={<PatientsView />} />
                         <Route path="/patients/:id" element={<PatientProfileView />} />
                         <Route path="/care-plans" element={<CarePlansView />} />
                         <Route path="/profile" element={<ProfileView />} />
                         <Route path="/dictionary" element={<DictionaryView />} />
+
+                        {/* RUTAS EXCLUSIVAS DE ADMIN */}
+                        <Route element={<AdminRoute />}>
+                            <Route path="/admin-dashboard" element={<AdminDashboardView />} />
+                        </Route>
+
                     </Route>
                 </Route>
 
