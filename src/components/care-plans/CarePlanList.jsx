@@ -1,390 +1,470 @@
-import React, { useState, useEffect } from 'react';
-import Button from '@/components/shared/Button';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+    faEllipsisH, faUserCircle, faCheckCircle, faCircleXmark, faStethoscope, 
+    faMagnifyingGlass, faTh, faList, faClock, faSortAlphaDown, faSortAlphaUpAlt, 
+    faArrowUp, faArrowDown, faFolderOpen, faArchive, faBookMedical 
+} from '@fortawesome/free-solid-svg-icons';
 
-export default function CarePlanList({ patientId }) {
-    // ESTADOS PRINCIPALES
-    const [allPlans, setAllPlans] = useState([]); // Guardamos TODOS los planes aquí
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getInitials(nombre = {}) {
+    const n = nombre.nombre?.[0] || '';
+    const ap = nombre.apellidoPaterno?.[0] || '';
+    return (ap + n).toUpperCase() || '?';
+}
+
+function getNombreCompleto(nombre = {}) {
+    return [nombre.apellidoPaterno, nombre.apellidoMaterno, nombre.nombre].filter(Boolean).join(' ');
+}
+
+// ── Lógica de Ordenamiento ────────────────────────────────────────────────────
+function sortPlans(plans, sort, dir) {
+    const arr = [...plans];
+    const asc = dir === 'asc';
+
+    switch (sort) {
+        case 'nombre':
+            return arr.sort((a, b) => {
+                const nameA = getNombreCompleto(a.pacienteId?.nombre);
+                const nameB = getNombreCompleto(b.pacienteId?.nombre);
+                const cmp = nameA.localeCompare(nameB, 'es');
+                return asc ? cmp : -cmp;
+            });
+        case 'diagnostico':
+            return arr.sort((a, b) => {
+                const diagA = a.nanda?.nombre || '';
+                const diagB = b.nanda?.nombre || '';
+                const cmp = diagA.localeCompare(diagB, 'es');
+                return asc ? cmp : -cmp;
+            });
+        case 'reciente':
+        default:
+            return arr.sort((a, b) => {
+                const cmp = new Date(b.fecha || 0) - new Date(a.fecha || 0);
+                return asc ? cmp : -cmp; 
+            });
+    }
+}
+
+const SORT_OPTIONS = [
+    {
+        key: 'reciente',
+        labelAsc: 'Más antiguos',
+        labelDesc: 'Más recientes',
+        iconAsc: <FontAwesomeIcon icon={faClock} className="opacity-60" />,
+        iconDesc: <FontAwesomeIcon icon={faClock} />,
+        tooltip: 'Fecha de creación',
+    },
+    {
+        key: 'nombre',
+        labelAsc: 'Paciente A→Z',
+        labelDesc: 'Paciente Z→A',
+        iconAsc: <FontAwesomeIcon icon={faSortAlphaDown} />,
+        iconDesc: <FontAwesomeIcon icon={faSortAlphaUpAlt} />,
+        tooltip: 'Ordenar por paciente',
+    },
+    {
+        key: 'diagnostico',
+        labelAsc: 'Diagnóstico A→Z',
+        labelDesc: 'Diagnóstico Z→A',
+        iconAsc: <FontAwesomeIcon icon={faBookMedical} />,
+        iconDesc: <FontAwesomeIcon icon={faBookMedical} className="opacity-60" />,
+        tooltip: 'Ordenar por NANDA',
+    }
+];
+
+// ── Sub-componente: Tarjeta (Grid View) ───────────────────────────────────────
+function CarePlanCard({ plan, onView, onFinalize }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const paciente = plan.pacienteId || {};
+    const nombre = paciente.nombre || {};
+    const sexo = paciente.demograficos?.sexo || 'N';
+    
+    const avatarBg = sexo === 'M' ? 'bg-blue-100 text-blue-600' : sexo === 'F' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-500';
+    const isFinalizado = plan.estado === 'Finalizado';
+
+    return (
+        <div onClick={() => onView(plan)}
+             className={`relative rounded-2xl p-5 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1
+               ${isFinalizado ? 'bg-gray-50 border border-gray-200 opacity-90' : 'bg-gradient-to-t from-[#16a09e]/10 to-white shadow-sm hover:ring-1 hover:ring-[#16a09e]/30 border border-gray-100'}`}>
+            
+            {/* Menú tres puntos */}
+            <div className="absolute top-4 right-4">
+                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                    <FontAwesomeIcon icon={faEllipsisH} />
+                </button>
+
+                {menuOpen && (
+                    <>
+                        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+                        <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 z-20 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm">
+                            <button onClick={() => { setMenuOpen(false); onView(plan); }} className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium">
+                                <FontAwesomeIcon icon={faUserCircle} className="text-[#16a09e] text-xs" />
+                                Ver plan a detalle
+                            </button>
+                            {!isFinalizado && (
+                                <>
+                                    <div className="mx-3 my-1 border-t border-gray-100" />
+                                    <button onClick={() => { setMenuOpen(false); onFinalize(plan); }} className="w-full text-left px-4 py-2 text-amber-600 hover:bg-amber-50 flex items-center gap-2 font-medium">
+                                        <FontAwesomeIcon icon={faCheckCircle} className="text-xs" />
+                                        Finalizar plan
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Avatar y Paciente */}
+            <div className="flex flex-col items-center text-center mb-4 mt-2">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold ring-4 ring-white shadow-md text-lg ${avatarBg}`}>
+                    {getInitials(nombre)}
+                </div>
+                <h3 className="mt-3 font-semibold text-sm leading-tight text-gray-800">
+                    <span className="font-bold block">{[nombre.apellidoPaterno, nombre.apellidoMaterno].filter(Boolean).join(' ')}</span>
+                    <span className="block font-normal text-xs mt-0.5 text-gray-500">{nombre.nombre}</span>
+                </h3>
+            </div>
+
+            <div className="border-t border-gray-100 mb-3" />
+
+            {/* Diagnóstico NANDA */}
+            <div className="space-y-1 mb-4 text-center">
+                <p className="font-semibold uppercase tracking-wide text-[10px] text-gray-400">Diagnóstico (NANDA)</p>
+                <p className="font-bold text-sm text-[#0f3460] line-clamp-2 leading-snug" title={plan.nanda?.nombre}>
+                    <FontAwesomeIcon icon={faStethoscope} className="text-[#16a09e] mr-1.5 text-xs" />
+                    {plan.nanda?.nombre || 'No especificado'}
+                </p>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400">
+                    {new Date(plan.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${isFinalizado ? 'bg-gray-200 text-gray-600' : 'bg-[#16a09e]/20 text-[#16a09e]'}`}>
+                    <FontAwesomeIcon icon={isFinalizado ? faCircleXmark : faCheckCircle} />
+                    {plan.estado}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+// ── Componente Principal ──────────────────────────────────────────────────────
+export default function CarePlanList({ onViewPlan, showToast, patientId }) {
+    // Estados de Datos
+    const [allPlans, setAllPlans] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
-    const [expandedPlanId, setExpandedPlanId] = useState(null);
     
-    // ESTADOS DE FILTRO Y BÚSQUEDA
-    const [filterStatus, setFilterStatus] = useState('Activo'); // 'Activo' o 'Finalizado'
+    // Estados de Búsqueda y Filtro
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('Activo'); // 'Activo' o 'Finalizado'
     
-    // ESTADOS DEL MODAL
-    const [modalNic, setModalNic] = useState(null); 
-    const [nicActivities, setNicActivities] = useState({}); 
-    const [nocNames, setNocNames] = useState({}); 
-    const [isLoadingModal, setIsLoadingModal] = useState(false);
+    // Estados de Vista y Ordenamiento
+    const [view, setView] = useState('grid');
+    const [sort, setSort] = useState('reciente');
+    const [sortDir, setSortDir] = useState('desc');
+    
+    // Estados de Paginación y Modal
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10); // 10, 20 o 50
+    const [confirmFinalize, setConfirmFinalize] = useState(null); // 🟢 Estado para el Modal
 
     useEffect(() => {
         const fetchCarePlans = async () => {
             setIsLoading(true);
             try {
-                const endpoint = patientId 
-                    ? `${import.meta.env.VITE_API_URL}/api/careplans/patient/${patientId}` 
-                    : `${import.meta.env.VITE_API_URL}/api/careplans`;
-
+                const endpoint = patientId ? `${import.meta.env.VITE_API_URL}/api/careplans/patient/${patientId}` : `${import.meta.env.VITE_API_URL}/api/careplans`;
                 const response = await fetch(endpoint);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    setAllPlans(data); // Ahora guardamos TODOS, sin filtrar aún
-
-                    // Buscar nombres de los NOCs
-                    const codigosNoc = [...new Set(data.flatMap(p => p.nocsEvaluados?.map(n => n.codigo) || []))];
-                    codigosNoc.forEach(fetchNocName);
-                }
-            } catch (error) {
-                console.error("Error de conexión:", error);
-            } finally {
-                setIsLoading(false);
-            }
+                if (response.ok) setAllPlans(await response.json());
+            } catch (error) { console.error("Error:", error); } 
+            finally { setIsLoading(false); }
         };
-
         fetchCarePlans();
     }, [patientId]);
 
-    const fetchNocName = async (codigo) => {
-        if (nocNames[codigo]) return; 
-        try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/${codigo}`);
-            if (res.ok) {
-                const data = await res.json();
-                setNocNames(prev => ({ ...prev, [codigo]: data.nombre }));
-            }
-        } catch (error) {
-            console.error(`Error obteniendo NOC ${codigo}:`, error);
-        }
+    // 🟢 Abrir modal
+    const handleFinalizeRequest = (plan) => {
+        setConfirmFinalize(plan);
     };
 
-    const handleFinalizePlan = async (planId, e) => {
-        e.stopPropagation(); 
-        
-        const confirmar = window.confirm("¿Está seguro de que desea finalizar este plan de cuidado? Pasará al historial de finalizados.");
-        if (!confirmar) return;
+    // 🟢 Ejecutar la finalización al confirmar
+    const executeFinalizePlan = async () => {
+        if (!confirmFinalize) return;
+        const planId = confirmFinalize._id;
 
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans/${planId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ estado: 'Finalizado' })
             });
 
             if (response.ok) {
-                // Actualizamos el plan localmente para que se mueva a la pestaña de "Finalizados"
-                setAllPlans(prev => prev.map(plan => 
-                    plan._id === planId ? { ...plan, estado: 'Finalizado' } : plan
-                ));
-                setExpandedPlanId(null);
-            } else {
-                alert("Hubo un error al finalizar el plan.");
+                setAllPlans(prev => prev.map(plan => plan._id === planId ? { ...plan, estado: 'Finalizado' } : plan));
+                showToast("Plan finalizado correctamente.", "success");
+            } else { 
+                showToast("Hubo un error al finalizar el plan.", "error"); 
             }
-        } catch (error) {
-            console.error("Error al finalizar:", error);
-        }
-    };
-
-    const toggleExpandPlan = (id) => {
-        setExpandedPlanId(expandedPlanId === id ? null : id);
-    };
-
-    const openNicModal = async (nic) => {
-        setModalNic(nic); 
-        if (nicActivities[nic.codigo]) return; 
-
-        setIsLoadingModal(true);
-        try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/${nic.codigo}`);
-            if (response.ok) {
-                const data = await response.json();
-                setNicActivities(prev => ({ ...prev, [nic.codigo]: data.actividades || [] }));
-            }
-        } catch (error) {
-            console.error("Error al obtener actividades del NIC:", error);
+        } catch (error) { 
+            showToast("Error de conexión.", "error"); 
         } finally {
-            setIsLoadingModal(false);
+            setConfirmFinalize(null); // Cerramos el modal independientemente del resultado
         }
     };
 
-    const closeModal = () => setModalNic(null);
+    // Filtrado
+    const filteredPlans = useMemo(() => {
+        return allPlans.filter(plan => {
+            const esActivo = plan.estado !== 'Finalizado';
+            const coincideEstado = filterStatus === 'Activo' ? esActivo : !esActivo;
+            
+            const textoBusqueda = searchTerm.toLowerCase();
+            const nombrePaciente = getNombreCompleto(plan.pacienteId?.nombre).toLowerCase();
+            const nombreNanda = plan.nanda?.nombre?.toLowerCase() || '';
+            
+            const coincideBusqueda = nombrePaciente.includes(textoBusqueda) || nombreNanda.includes(textoBusqueda);
+            return coincideEstado && coincideBusqueda;
+        });
+    }, [allPlans, searchTerm, filterStatus]);
 
-    const formatearFecha = (fechaIso) => {
-        const opciones = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-        return new Date(fechaIso).toLocaleDateString('es-MX', opciones);
+    // Ordenamiento
+    const sortedPlans = useMemo(() => {
+        return sortPlans(filteredPlans, sort, sortDir);
+    }, [filteredPlans, sort, sortDir]);
+
+    // Paginación
+    const totalPages = Math.max(1, Math.ceil(sortedPlans.length / pageSize));
+    const currentPlans = sortedPlans.slice((page - 1) * pageSize, page * pageSize);
+
+    const handleSortClick = (key) => {
+        if (sort === key) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSort(key);
+            setSortDir('desc');
+        }
+        setPage(1);
     };
-
-    // 🟢 LÓGICA DE FILTRADO (Estado + Buscador)
-    const filteredPlans = allPlans.filter(plan => {
-        // 1. Filtrar por estado
-        const esActivo = plan.estado !== 'Finalizado';
-        const coincideEstado = filterStatus === 'Activo' ? esActivo : !esActivo;
-        
-        // 2. Filtrar por búsqueda (nombre del paciente o nombre del NANDA)
-        const textoBusqueda = searchTerm.toLowerCase();
-        const nombrePaciente = [
-            plan.pacienteId?.nombre?.apellidoPaterno,
-            plan.pacienteId?.nombre?.apellidoMaterno,
-            plan.pacienteId?.nombre?.nombre
-        ].filter(Boolean).join(' ').toLowerCase();
-        const nombreNanda = plan.nanda?.nombre?.toLowerCase() || '';
-        
-        const coincideBusqueda = nombrePaciente.includes(textoBusqueda) || nombreNanda.includes(textoBusqueda);
-
-        return coincideEstado && coincideBusqueda;
-    });
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-blue-600 font-medium">Cargando expediente clínico...</span>
+            <div className="flex justify-center items-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#16a09e]"></div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-5 relative">
-            
-            {/* 🟢 BARRA DE CONTROLES (Pestañas y Buscador) */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                {/* Pestañas Activo / Finalizado */}
-                <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
-                    <button 
-                        onClick={() => { setFilterStatus('Activo'); setExpandedPlanId(null); }}
-                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Activo' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Planes Activos
-                    </button>
-                    <button 
-                        onClick={() => { setFilterStatus('Finalizado'); setExpandedPlanId(null); }}
-                        className={`flex-1 px-6 py-2 rounded-md text-sm font-bold transition-all ${filterStatus === 'Finalizado' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Finalizados
-                    </button>
-                </div>
-
-                {/* Buscador de pacientes (Solo se muestra si no estamos en la vista de un solo paciente) */}
+        <div>
+            {/* ── Toolbar Superior (Buscador, Filtros, Orden, Vista) ── */}
+            <div className="flex flex-col gap-3 mb-6">
+                
+                {/* FILA 1: Buscador */}
                 {!patientId && (
-                    <div className="w-full md:w-72 relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                        <input 
-                            type="text" 
-                            placeholder="Buscar por paciente o diagnóstico..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm outline-none transition-all"
+                    <div className="relative">
+                        <FontAwesomeIcon
+                            icon={faMagnifyingGlass}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"
                         />
-                    </div>
-                )}
-            </div>
-
-            {/* MENSAJE SI NO HAY RESULTADOS */}
-            {filteredPlans.length === 0 && (
-                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-10 text-center">
-                    <p className="text-gray-500 font-medium text-lg">No se encontraron planes de cuidado.</p>
-                    <p className="text-sm text-gray-400 mt-2">
-                        {searchTerm ? 'Intente con otro término de búsqueda.' : `No hay planes marcados como "${filterStatus}".`}
-                    </p>
-                </div>
-            )}
-
-            {/* 🟢 LISTADO DE PLANES FILTRADOS */}
-            {filteredPlans.map((plan) => (
-                <div key={plan._id} className={`border rounded-xl shadow-sm bg-white overflow-hidden transition-all ${filterStatus === 'Finalizado' ? 'border-gray-300 opacity-90' : 'border-blue-100'}`}>
-                    
-                    {/* ENCABEZADO DEL PLAN */}
-                    <div className={`p-5 ${filterStatus === 'Activo' ? 'bg-gradient-to-b md:bg-gradient-to-r from-primario/10 to-white' : 'bg-gray-50'}`}>
-                        <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${filterStatus === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
-                                        {filterStatus === 'Activo' ? 'Plan Activo' : 'Plan Finalizado'}
-                                    </span>
-                                    <span className="text-sm text-gray-500 font-medium">{formatearFecha(plan.fecha)}</span>
-                                </div>
-                                
-                                <h4 className={`text-xl font-bold mb-3 ${filterStatus === 'Activo' ? 'text-blue-900' : 'text-gray-700'}`}>
-                                    {plan.nanda?.nombre || 'Diagnóstico no especificado'}
-                                </h4>
-                                
-                                {/* DETALLES DEL PACIENTE */}
-                                {!patientId && plan.pacienteId && (
-                                    <div className="flex-wrap items-center gap-4 text-sm bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-gray-500">Paciente:</span>
-                                            <span className="font-bold text-gray-800">{[plan.pacienteId?.nombre?.apellidoPaterno,
-                                                plan.pacienteId?.nombre?.apellidoMaterno].filter(Boolean).join(' ')}
-                                                {', '}
-                                                {plan.pacienteId?.nombre?.nombre}
-                                            </span>
-                                        </div>
-                                        {plan.ingresoId?.ingreso?.servicio && (
-                                            <>
-                                                <div className="w-px h-4 bg-gray-300 hidden md:block"></div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-gray-500">Ubicación:</span>
-                                                    <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                                                        {plan.ingresoId.ingreso.servicio}
-                                                        {plan.ingresoId.ingreso.cama && ` / ${plan.ingresoId.ingreso.cama}`}
-                                                    </span>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex flex-col gap-2 shrink-0 min-w-[180px]">
-                                <Button 
-                                    type="button" 
-                                    onClick={() => toggleExpandPlan(plan._id)}
-                                    variant={filterStatus === 'Finalizado' ? 'secondary' : 'primary'}
-                                    className="w-full justify-center"
-                                >
-                                    {expandedPlanId === plan._id ? 'Ocultar detalles' : 'Ver detalles del plan'}
-                                </Button>
-                                
-                                {/* EL BOTÓN FINALIZAR SOLO APARECE SI EL PLAN ESTÁ ACTIVO */}
-                                {filterStatus === 'Activo' && (
-                                    <button 
-                                        onClick={(e) => handleFinalizePlan(plan._id, e)}
-                                        className="w-full text-center px-4 py-2 text-md font-medium text-white bg-secundario border border-transparent rounded-full shadow-sm hover:bg-secundario/80 focus:outline-none transition-colors"
-                                    >
-                                        Finalizar plan
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* INTERIOR DEL PLAN EXPANDIDO */}
-                    {expandedPlanId === plan._id && (
-                        <div className="p-6 border-t border-gray-100 animate-fade-in bg-gray-50/50">
-                            
-                            {/* SECCIÓN NOC */}
-                            <div className="mb-8">
-                                <h5 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${filterStatus === 'Activo' ? 'bg-blue-500' : 'bg-gray-400'}`}></span>
-                                    Resultados Esperados Evaluados
-                                </h5>
-                                {plan.nocsEvaluados && plan.nocsEvaluados.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {plan.nocsEvaluados.map((noc, index) => {
-                                            const esGrave = noc.promedio >= 4;
-                                            const esModerado = noc.promedio >= 3 && noc.promedio < 4;
-                                            
-                                            // Colores más apagados si el plan está finalizado
-                                            const colorClass = filterStatus === 'Finalizado' 
-                                                ? 'bg-gray-100 text-gray-600 border-gray-200' 
-                                                : esGrave ? 'bg-red-100 text-red-700 border-red-200' 
-                                                : esModerado ? 'bg-yellow-100 text-yellow-700 border-yellow-200' 
-                                                : 'bg-green-100 text-green-700 border-green-200';
-                                            
-                                            const textoGravedad = esGrave ? 'Gravedad Alta' : 
-                                                                  esModerado ? 'Gravedad Moderada' : 
-                                                                  'Gravedad Baja';
-
-                                            return (
-                                                <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between">
-                                                    <span className={`font-bold mb-3 ${filterStatus === 'Activo' ? 'text-gray-800' : 'text-gray-600'}`}>
-                                                        {nocNames[noc.codigo] || `Cargando NOC (${noc.codigo})...`}
-                                                    </span>
-                                                    
-                                                    <div className="flex justify-between items-center border-t border-gray-100 pt-3">
-                                                        <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Nivel de Compromiso:</span>
-                                                        <span className={`px-3 py-1 rounded border font-bold text-xs ${colorClass}`}>
-                                                            {textoGravedad} ({noc.promedio})
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500 italic">No hay evaluaciones registradas.</p>
-                                )}
-                            </div>
-
-                            {/* SECCIÓN NIC */}
-                            <div>
-                                <h5 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${filterStatus === 'Activo' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                                    Intervenciones a Realizar
-                                </h5>
-                                {plan.nicsSeleccionados && plan.nicsSeleccionados.length > 0 ? (
-                                    <div className="flex flex-wrap gap-3">
-                                        {plan.nicsSeleccionados.map((nic, index) => (
-                                            <button 
-                                                key={index}
-                                                onClick={() => openNicModal(nic)}
-                                                className={`group px-5 py-3 rounded-lg shadow hover:shadow-md transition-all text-left flex items-center justify-between flex-1 min-w-[250px]
-                                                    ${filterStatus === 'Activo' 
-                                                        ? 'bg-green-600 hover:bg-green-700 text-white' 
-                                                        : 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-700'
-                                                    }`}
-                                            >
-                                                <span className="font-semibold pr-4">{nic.nombre}</span>
-                                                <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap transition-colors
-                                                    ${filterStatus === 'Activo' 
-                                                        ? 'text-green-800 bg-green-100 group-hover:bg-white' 
-                                                        : 'bg-gray-200 text-gray-600'
-                                                    }`}
-                                                >
-                                                    Ver Actividades
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500 italic">No hay intervenciones seleccionadas.</p>
-                                )}
-                            </div>
-
-                        </div>
-                    )}
-                </div>
-            ))}
-
-            {/* MODAL DE ACTIVIDADES NIC (Sin cambios, ya estaba perfecto) */}
-            {modalNic && (
-                <div className="fixed top-0 left-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 backdrop-blur-md">
-                    <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-fade-in">
-                        
-                        <div className={`p-5 flex justify-between items-center text-white shrink-0 ${filterStatus === 'Activo' ? 'bg-green-600' : 'bg-gray-600'}`}>
-                            <div>
-                                <p className="text-white/80 text-xs font-bold uppercase tracking-wider mb-1">Intervención de Enfermería</p>
-                                <h3 className="text-xl font-bold leading-tight pr-4">{modalNic.nombre}</h3>
-                            </div>
-                            <button onClick={closeModal} className="text-white hover:bg-black/20 p-2 rounded-full transition-colors font-bold shrink-0">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                            placeholder="Buscar por paciente o diagnóstico NANDA..."
+                            className="w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 placeholder-gray-400 transition focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20"
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => { setSearchTerm(''); setPage(1); }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition text-xs">
                                 ✕
                             </button>
+                        )}
+                    </div>
+                )}
+
+                {/* FILA 2: Controles de Ordenamiento y Vista */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    
+                    {/* Switch: Activos / Finalizados */}
+                    <div className="flex bg-gray-100 rounded-lg p-1 shrink-0">
+                        <button 
+                            onClick={() => { setFilterStatus('Activo'); setPage(1); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'Activo' ? 'bg-white text-[#16a09e] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <FontAwesomeIcon icon={faFolderOpen} />
+                            <span className="hidden sm:inline">Activos</span>
+                        </button>
+                        <button 
+                            onClick={() => { setFilterStatus('Finalizado'); setPage(1); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${filterStatus === 'Finalizado' ? 'bg-white text-gray-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <FontAwesomeIcon icon={faArchive} />
+                            <span className="hidden sm:inline">Historial</span>
+                        </button>
+                    </div>
+
+                    {/* Botones de Ordenamiento */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap gap-1.5">
+                            {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
+                                const isActive = sort === key;
+                                const isDesc   = isActive && sortDir === 'desc';
+                                return (
+                                    <button
+                                        key={key} onClick={() => handleSortClick(key)} title={tooltip}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all select-none
+                                            ${isActive ? 'bg-[#16a09e] text-white border-[#16a09e] shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-[#16a09e]/40 hover:text-[#16a09e]'}`}>
+                                        <span className="text-sm leading-none">{isDesc ? iconDesc : iconAsc}</span>
+                                        <span className="hidden sm:inline">{isDesc ? labelDesc : labelAsc}</span>
+                                        {isActive && <span className="hidden sm:inline text-[10px] opacity-80 leading-none"><FontAwesomeIcon icon={isDesc ? faArrowDown : faArrowUp} /></span>}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
-                            <h4 className="text-gray-800 font-bold mb-3 border-b pb-2">Actividades a ejecutar:</h4>
-                            
-                            {isLoadingModal && !nicActivities[modalNic.codigo] ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="animate-spin h-8 w-8 border-b-2 border-gray-400 rounded-full"></div>
+                        <div className="w-px h-6 bg-gray-200 hidden md:block mx-1"></div>
+
+                        <div className="flex bg-gray-100 rounded-lg p-1 gap-1 shrink-0">
+                            {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
+                                <button key={v} onClick={() => { setView(v); setPage(1); }}
+                                        className={`p-1.5 rounded-md transition-colors ${view === v ? 'bg-white shadow-sm text-[#16a09e]' : 'text-gray-400 hover:text-gray-600'}`}>
+                                    <FontAwesomeIcon icon={icon} size="sm" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Resultados ── */}
+            {sortedPlans.length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center">
+                    <p className="text-gray-500 font-bold text-lg">No se encontraron planes de cuidado.</p>
+                    <p className="text-sm text-gray-400 mt-1">Intente con otro término o cambie de filtros.</p>
+                </div>
+            ) : (
+                <>
+                    {/* VISTA GRID (Tarjetas) */}
+                    {view === 'grid' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                            {currentPlans.map(plan => (
+                                <CarePlanCard key={plan._id} plan={plan} onView={onViewPlan} onFinalize={handleFinalizeRequest} />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* VISTA LISTA */}
+                    {view === 'list' && (
+                        <div className="overflow-x-auto rounded-xl border border-gray-100">
+                            <div className="min-w-[700px] bg-white divide-y divide-gray-100">
+                                <div className="px-6 py-3 grid grid-cols-[2fr_1fr_3fr_1fr_auto] gap-4 text-xs font-bold text-gray-400 uppercase tracking-wide bg-gray-50">
+                                    <span>Paciente</span>
+                                    <span>Creación</span>
+                                    <span>Diagnóstico NANDA</span>
+                                    <span>Estado</span>
+                                    <span className="w-8"></span>
                                 </div>
-                            ) : nicActivities[modalNic.codigo]?.length > 0 ? (
-                                <ul className="list-disc pl-5 space-y-1.5 text-gray-700">
-                                    {nicActivities[modalNic.codigo].map((actividad, idx) => (
-                                        <li key={idx} className="leading-snug">{actividad}</li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-center py-8 text-gray-500">No se encontraron actividades.</p>
-                            )}
+                                {currentPlans.map(plan => {
+                                    const nombre = plan.pacienteId?.nombre || {};
+                                    const sexo = plan.pacienteId?.demograficos?.sexo || 'N';
+                                    const avatarBg = sexo === 'M' ? 'bg-blue-100 text-blue-600' : sexo === 'F' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-500';
+                                    const isFinalizado = plan.estado === 'Finalizado';
+
+                                    return (
+                                        <div key={plan._id} onClick={() => onViewPlan(plan)}
+                                             className={`px-6 py-4 text-sm grid grid-cols-[2fr_1fr_3fr_1fr_auto] gap-4 items-center cursor-pointer transition-colors ${isFinalizado ? 'hover:bg-gray-50 bg-gray-50/50' : 'hover:bg-[#16a09e]/5'}`}>
+                                            <span className="flex items-center gap-3 font-medium text-gray-800 min-w-0">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${avatarBg}`}>{getInitials(nombre)}</div>
+                                                <span className="min-w-0">
+                                                    <span className="font-bold block truncate">{[nombre.apellidoPaterno, nombre.apellidoMaterno, nombre.nombre].filter(Boolean).join(' ')}</span>
+                                                </span>
+                                            </span>
+                                            <span className="text-gray-500 text-xs font-semibold">{new Date(plan.fecha).toLocaleDateString('es-MX')}</span>
+                                            <span className="text-[#0f3460] font-semibold truncate"><FontAwesomeIcon icon={faStethoscope} className="text-[#16a09e] mr-2 text-xs" />{plan.nanda?.nombre || '—'}</span>
+                                            <span>
+                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${isFinalizado ? 'bg-gray-200 text-gray-600' : 'bg-[#16a09e]/20 text-[#16a09e]'}`}>
+                                                    {plan.estado}
+                                                </span>
+                                            </span>
+                                            <button onClick={(e) => { e.stopPropagation(); isFinalizado ? onViewPlan(plan) : handleFinalizeRequest(plan); }} title={isFinalizado ? 'Ver plan' : 'Finalizar plan'}
+                                                    className={`p-2 rounded-lg transition-colors ${isFinalizado ? 'text-gray-400 hover:bg-gray-200' : 'text-amber-500 hover:bg-amber-100'}`}>
+                                                <FontAwesomeIcon icon={isFinalizado ? faUserCircle : faCheckCircle} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Paginación Inferior ── */}
+                    <div className="flex flex-wrap items-center justify-center md:justify-between gap-3 mt-6 pt-4 border-t border-gray-100">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+                            <span>Mostrar</span>
+                            {[10, 20, 50].map(n => (
+                                <button key={n} onClick={() => { setPageSize(n); setPage(1); }}
+                                    className={`w-9 h-7 rounded-md border text-xs font-bold transition-all ${pageSize === n ? 'bg-[#16a09e] text-white border-[#16a09e]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#16a09e]/40 hover:text-[#16a09e]'}`}>
+                                    {n}
+                                </button>
+                            ))}
+                            <span>por página</span>
                         </div>
 
-                        <div className="p-4 border-t bg-white flex justify-end shrink-0">
-                            <Button onClick={closeModal} variant="secondary">Cerrar</Button>
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setPage(page - 1)} disabled={page === 1} className="px-3 h-8 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:border-[#16a09e]/40 hover:text-[#16a09e] disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white">
+                                ← Anterior
+                            </button>
+                            
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                                .reduce((acc, n, idx, arr) => {
+                                    if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                                    acc.push(n);
+                                    return acc;
+                                }, [])
+                                .map((item, idx) => item === '…' 
+                                    ? <span key={`gap-${idx}`} className="px-1 text-gray-300 text-xs">…</span>
+                                    : <button key={item} onClick={() => setPage(item)} className={`w-8 h-8 rounded-lg border text-xs font-bold transition-all ${page === item ? 'bg-[#16a09e] text-white border-[#16a09e] shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-[#16a09e]/40 hover:text-[#16a09e]'}`}>
+                                        {item}
+                                      </button>
+                                )
+                            }
+
+                            <button onClick={() => setPage(page + 1)} disabled={page === totalPages} className="px-3 h-8 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:border-[#16a09e]/40 hover:text-[#16a09e] disabled:opacity-30 disabled:cursor-not-allowed transition-all bg-white">
+                                Siguiente →
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* 🟢 Modal de Confirmación de Finalización */}
+            {confirmFinalize && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 animate-fade-in"
+                     onClick={() => setConfirmFinalize(null)}>
+                    <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4 transform scale-100"
+                         onClick={e => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faCheckCircle} className="text-amber-500" />
+                            ¿Finalizar plan?
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-5 leading-snug">
+                            El plan del paciente <span className="font-bold text-gray-700">{getNombreCompleto(confirmFinalize.pacienteId?.nombre)}</span> pasará al historial y no podrá recibir más evaluaciones.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setConfirmFinalize(null)}
+                                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={executeFinalizePlan}
+                                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 active:scale-95 transition-all shadow-md">
+                                Finalizar
+                            </button>
                         </div>
                     </div>
                 </div>

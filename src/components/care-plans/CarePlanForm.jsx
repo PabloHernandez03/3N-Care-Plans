@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faPills, faHospital, faLeaf, faClipboard, faCalendar, faHistory } from '@fortawesome/free-solid-svg-icons';
-// import Button from '@/components/shared/Button';
 
 /* ─── Utilidades ─────────────────────────────────────────────────────────── */
 const calcularEdad = (fechaStr) => {
@@ -27,6 +26,15 @@ const formatearFecha = (fechaStr) => {
     if (isNaN(d)) return "";
     return [d.getUTCDate(), d.getUTCMonth() + 1, d.getUTCFullYear()]
         .map(n => String(n).padStart(2, '0')).join('/');
+};
+
+const formatoFechaBackend = (fechaStr) => {
+    if (!fechaStr) return null;
+    if (fechaStr.includes('/')) {
+        const [d, m, y] = fechaStr.split('/');
+        return `${y}-${m}-${d}T00:00:00.000Z`;
+    }
+    return fechaStr;
 };
 
 /* ─── Sub-componentes de UI ──────────────────────────────────────────────── */
@@ -78,7 +86,8 @@ const RadioItem = ({ name, value, label, className = "" }) => (
 );
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
-const CarePlanForm = ({ onCancel, onPatientSaved }) => {
+// 🟢 RECIBIMOS showToast COMO PROP
+const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
     const [patientList, setPatientList]         = useState([]);
     const [selectedOption, setSelectedOption]   = useState("");
     const [selectedSex, setSelectedSex]         = useState("");
@@ -90,6 +99,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
     ]);
     const hasMedsText = medicamentos.some(m => Object.values(m).some(v => v !== ""));
     const [noMeds, setNoMeds] = useState(false);
+    const [edadMostrada, setEdadMostrada]       = useState(null);
 
     const addMedicamento = () => {
         setMedicamentos(prev => [...prev, { nombre: "", dosis: "", frecuencia: "", via: "" }]);
@@ -102,7 +112,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
     const updateMedicamento = (index, field, value) => {
         setMedicamentos(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
     };
-    const [edadMostrada, setEdadMostrada]       = useState(null);
 
     useEffect(() => {
         fetch(`${import.meta.env.VITE_API_URL}/api/patients`)
@@ -131,92 +140,81 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
         setHasAllergyText(vals.some(v => v !== ''));
     };
 
-    const checkMedsInputs = () => {
-        const vals = ['medName','medDose','medFreq','medRoute']
-            .map(n => document.querySelector(`[name="${n}"]`)?.value || '');
-        setHasMedsText(vals.some(v => v !== ''));
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         const form = new FormData(e.target);
         const data = Object.fromEntries(form.entries());
 
         const patientPayload = {
-            nombre: {
-                nombre:          data.firstName,
-                apellidoPaterno: data.lastNameP,
-                apellidoMaterno: data.lastNameM
-            },
+            nombre: { nombre: data.firstName, apellidoPaterno: data.lastNameP, apellidoMaterno: data.lastNameM },
             curp: data.curp.toUpperCase(),
-            demograficos: {
-                fechaNacimiento: data.patientBirthdate,
-                sexo:            data.patientSex,
-                tipoSangre:      data.patientBloodType
-            },
+            demograficos: { fechaNacimiento: formatoFechaBackend(data.patientBirthdate), sexo: data.patientSex, tipoSangre: data.patientBloodType },
             antecedentes: {
-                patologicos: [
-                    data.diabetes && "Diabetes", data.hypertension && "Hipertensión",
-                    data.cardiopathies && "Cardiopatías", data.asthma && "Asma/EPOC",
-                    data.epilepsy && "Epilepsia", data.cancer && "Cáncer",
-                    data.otherPathological ? `Otro: ${data.otherPathological}` : null
-                ].filter(Boolean),
-                noPatologicos: [
-                    data.vaccination && "Esquema de vacunación completo",
-                    data.physicalActivity && "Actividad física regular",
-                    data.healthyDiet && "Alimentación saludable",
-                    data.poorHygiene && "Higiene deficiente",
-                    data.otherNonPathological ? `Otro: ${data.otherNonPathological}` : null
-                ].filter(Boolean),
-                quirurgicos: [
-                    data.appendectomy && "Apendicectomía", data.cesarean && "Cesárea",
-                    data.orthopedic && "Cirugía ortopédica",
-                    data.otherSurgical ? `Otro: ${data.otherSurgical}` : null
-                ].filter(Boolean)
+                patologicos: [data.diabetes && "Diabetes", data.hypertension && "Hipertensión", data.cardiopathies && "Cardiopatías", data.asthma && "Asma/EPOC", data.epilepsy && "Epilepsia", data.cancer && "Cáncer", data.otherPathological ? `Otro: ${data.otherPathological}` : null].filter(Boolean),
+                noPatologicos: [data.vaccination && "Esquema de vacunación completo", data.physicalActivity && "Actividad física regular", data.healthyDiet && "Alimentación saludable", data.poorHygiene && "Higiene deficiente", data.otherNonPathological ? `Otro: ${data.otherNonPathological}` : null].filter(Boolean),
+                quirurgicos: [data.appendectomy && "Apendicectomía", data.cesarean && "Cesárea", data.orthopedic && "Cirugía ortopédica", data.otherSurgical ? `Otro: ${data.otherSurgical}` : null].filter(Boolean)
             },
-            alergias: {
-                ninguna:      !!data.noKnownAllergies,
-                medicamentos: data.medicationAllergies || "",
-                alimentos:    data.foodAllergies || "",
-                ambientales:  data.environmentalAllergies || ""
-            },
-            medicacionActual: noMeds
-                ? [{ ninguna: true, nombre: "", dosis: "", frecuencia: "", via: "" }]
-                : medicamentos.filter(m => m.nombre || m.dosis || m.frecuencia || m.via)
-                            .map(m => ({ ...m, ninguna: false })),
-            habitos: {
-                tabaquismo:   data.smoking || "No",
-                alcoholismo:  data.alcohol || "No",
-                alimentacion: data.diet || "Balanceada"
-            },
-            redCuidados: data.familySupport || "",
-            ingreso: {
-                fecha:             data.admissionDate,
-                hora:              data.admissionTime,
-                servicio:          data.admissionService,
-                cama:              data.admissionBed,
-                diagnosticoMedico: data.medicalDiagnosis
-            }
+            alergias: { ninguna: !!data.noKnownAllergies, medicamentos: data.medicationAllergies || "", alimentos: data.foodAllergies || "", ambientales: data.environmentalAllergies || "" },
+            medicacionActual: noMeds ? [{ ninguna: true, nombre: "", dosis: "", frecuencia: "", via: "" }] : medicamentos.filter(m => m.nombre || m.dosis || m.frecuencia || m.via).map(m => ({ ...m, ninguna: false })),
+            habitos: { tabaquismo: data.smoking || "No", alcoholismo: data.alcohol || "No", alimentacion: data.diet || "Balanceada" },
+            redCuidados: data.familySupport || ""
+        };
+
+        const ingresoPayload = {
+            fecha: formatoFechaBackend(data.admissionDate),
+            hora: data.admissionTime,
+            servicio: data.admissionService,
+            cama: data.admissionBed,
+            diagnosticoMedico: data.medicalDiagnosis
         };
 
         if (selectedOption === "") {
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
-            if (curpExists) { alert("Ya existe un registro con esta CURP."); return; }
+            if (curpExists) { 
+                showToast("Ya existe un registro con esta CURP.", "error"); 
+                return; 
+            }
+            
             try {
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(patientPayload)
                 });
-                if (res.ok) { onPatientSaved(await res.json()); alert("¡Paciente guardado!"); }
-                else { const err = await res.json(); alert(`Error: ${err.error}`); }
-            } catch { alert("No se pudo conectar con el servidor."); }
+                
+                if (res.ok) { 
+                    const savedPatient = await res.json();
+                    const pacienteReal = savedPatient.paciente || savedPatient.data || savedPatient;
+                    const pacienteId = pacienteReal._id;
+                    
+                    const ingRes = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pacienteId: pacienteId, ingreso: ingresoPayload })
+                    });
+
+                    if (ingRes.ok) {
+                        const savedAdmission = await ingRes.json();
+                        pacienteReal.ingresoId = savedAdmission._id || savedAdmission.data?._id;
+                        
+                        showToast("Paciente y admisión registrados correctamente", "success");
+                        onPatientSaved(pacienteReal); 
+                    } else { 
+                        showToast("Paciente creado, pero hubo un error al registrar el ingreso.", "error"); 
+                    }
+                } else { 
+                    const err = await res.json(); 
+                    showToast(`Error: ${err.error}`, "error"); 
+                }
+            } catch { 
+                showToast("No se pudo conectar con el servidor.", "error"); 
+            }
         } else {
             try {
                 await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
                 });
-                const expRes = await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
+                
+                await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
@@ -224,9 +222,30 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         redCuidados: patientPayload.redCuidados
                     })
                 });
-                if (expRes.ok) { onPatientSaved(await expRes.json()); alert("¡Datos actualizados!"); }
-                else { const err = await expRes.json(); alert(`Error: ${err.error}`); }
-            } catch { alert("No se pudo conectar con el servidor."); }
+
+                const ingRes = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pacienteId: selectedOption, ingreso: ingresoPayload })
+                });
+
+                if (ingRes.ok) { 
+                    const savedAdmission = await ingRes.json();
+                    const pacienteExistente = patientList.find(p => p._id === selectedOption);
+                    
+                    const pacienteParaBuilder = {
+                        ...pacienteExistente,
+                        nombre: patientPayload.nombre,
+                        ingresoId: savedAdmission._id || savedAdmission.data?._id
+                    };
+                    
+                    showToast("Expediente y admisión actualizados correctamente", "success");
+                    onPatientSaved(pacienteParaBuilder); 
+                } else { 
+                    showToast("Hubo un error al guardar la nueva admisión.", "error"); 
+                }
+            } catch { 
+                showToast("No se pudo conectar con el servidor.", "error"); 
+            }
         }
     };
 
@@ -236,7 +255,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
         document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
         setSelectedSex(""); setSelectedBloodType(""); setEdadMostrada(null);
         setNoAllergies(false); setHasAllergyText(false);
-        setNoMeds(false); setHasMedsText(false);
+        setNoMeds(false); 
         ['firstName','lastNameP','lastNameM','curp'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.readOnly = false;
@@ -355,23 +374,15 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         Registro de Paciente
                     </h1>
                     <p className="text-sm text-gray-400 mt-0.5">
-                        {selectedOption === "" ? "Nuevo ingreso" : "Editar expediente existente"}
+                        {selectedOption === "" ? "Nuevo ingreso" : "Nueva admisión para expediente existente"}
                     </p>
                 </div>
-                {selectedOption !== "" && (
-                    <button type="button"
-                            onClick={() => console.log("Abriendo historial")}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-[#0f3460] text-[#0f3460] text-sm font-semibold hover:bg-primario hover:text-white transition-all">
-                        <span><FontAwesomeIcon icon={faHistory} /></span> Ver historial
-                    </button>
-                )}
             </div>
 
             {/* ══ SECCIÓN 1: IDENTIFICACIÓN ══ */}
             <div className="grid grid-cols-1 gap-4">
                 <SectionTitle icon={<FontAwesomeIcon icon={faUser} />}>Identificación del paciente</SectionTitle>
 
-                {/* Selector de paciente */}
                 <Card className="col-span-full">
                     <FieldLabel>Seleccionar paciente existente</FieldLabel>
                     <div className="relative">
@@ -385,14 +396,8 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         </select>
                         <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
                     </div>
-                    {selectedOption === "" && (
-                        <p className="mt-2 text-xs text-[#16a09e] font-medium">
-                            ✦ Deja en blanco para registrar un paciente nuevo
-                        </p>
-                    )}
                 </Card>
 
-                {/* Nombre en 3 campos */}
                 <Card className="col-span-full">
                     <FieldLabel>Nombre completo</FieldLabel>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -414,7 +419,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                     </div>
                 </Card>
 
-                {/* CURP + Datos demográficos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
                         <FieldLabel htmlFor="curp">CURP</FieldLabel>
@@ -468,7 +472,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
 
             {/* ══ SECCIÓN 2: INGRESO ══ */}
             <div className="grid grid-cols-1 gap-4">
-                <SectionTitle icon={<FontAwesomeIcon icon={faHospital} />}>Datos de ingreso</SectionTitle>
+                <SectionTitle icon={<FontAwesomeIcon icon={faHospital} />}>Datos de ingreso actual</SectionTitle>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Card>
@@ -510,7 +514,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 <SectionTitle icon={<FontAwesomeIcon icon={faClipboard} />}>Antecedentes personales</SectionTitle>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Patológicos */}
                     <Card>
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-2 h-2 rounded-full bg-red-400 mb-1.5" />
@@ -531,7 +534,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         </div>
                     </Card>
 
-                    {/* No patológicos */}
                     <Card>
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-2 h-2 rounded-full bg-green-400 mb-1.5" />
@@ -551,7 +553,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         </div>
                     </Card>
 
-                    {/* Quirúrgicos */}
                     <Card>
                         <div className="flex items-center gap-2 mb-3">
                             <div className="w-2 h-2 rounded-full bg-amber-400 mb-1.5" />
@@ -578,7 +579,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 <SectionTitle icon={<FontAwesomeIcon icon={faPills} />}>Datos clínicos</SectionTitle>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Alergias */}
                     <Card>
                         <FieldLabel>Alergias conocidas</FieldLabel>
                         <div className="space-y-2 mb-3">
@@ -610,7 +610,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         </label>
                     </Card>
 
-                    {/* Medicación */}
                     <Card>
                         <div className="flex items-center justify-between mb-3">
                             <FieldLabel>Medicación actual</FieldLabel>
@@ -629,7 +628,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                                 {medicamentos.map((med, index) => (
                                     <div key={index}
                                         className="grid grid-cols-2 gap-2 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                                        {/* Número de medicamento si hay más de uno */}
                                         {medicamentos.length > 1 && (
                                             <div className="col-span-2 flex items-center justify-between">
                                                 <span className="text-xs font-semibold text-[#0f3460]/50 uppercase tracking-wider">
@@ -684,7 +682,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 <SectionTitle icon={<FontAwesomeIcon icon={faLeaf} />}>Hábitos y entorno</SectionTitle>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Hábitos */}
                     <Card>
                         <FieldLabel>Hábitos de vida</FieldLabel>
                         <div className="space-y-3">
@@ -706,7 +703,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                         </div>
                     </Card>
 
-                    {/* Red de cuidados */}
                     <Card>
                         <FieldLabel>Red de cuidados</FieldLabel>
                         <div className="grid grid-cols-1 gap-2.5">
@@ -728,7 +724,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
             {/* ── ACCIONES ── */}
             <div className="flex flex-col sm:flex-row justify-end items-center gap-3 pt-4 border-t-2 border-[#0f3460]/10">
                 <span className="text-xs text-gray-400 mr-auto hidden sm:block">
-                    {selectedOption === "" ? "Se creará un nuevo paciente" : "Se actualizará el expediente existente"}
+                    {selectedOption === "" ? "Se creará un nuevo paciente" : "Se actualizará el expediente existente y se registrará un nuevo ingreso"}
                 </span>
                 <button type="button" onClick={onCancel}
                         className="w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all">
@@ -736,7 +732,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved }) => {
                 </button>
                 <button type="submit"
                         className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primario text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all shadow-md shadow-[#0f3460]/20">
-                    {selectedOption === "" ? "Registrar paciente" : "Guardar cambios"}
+                    {selectedOption === "" ? "Registrar paciente" : "Guardar cambios y Admisión"}
                 </button>
             </div>
         </form>

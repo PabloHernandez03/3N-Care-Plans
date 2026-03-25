@@ -245,7 +245,7 @@ export default function DashboardView() {
 
             {/* Encabezado */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-800">Panel de control</h1>
+                <h1 className="text-3xl font-bold text-gray-800">Panel de control</h1>
                 <p className="text-sm text-gray-400 mt-0.5">
                     {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>

@@ -1,24 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import Button from '@/components/shared/Button';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+    faUser, faMagnifyingGlass, faStethoscope, faBullseye, faHandHoldingMedical, 
+    faChevronDown, faChevronRight, faTimes, faCheck, faHeart, faAppleAlt, faToilet, 
+    faWalking, faBrain, faUserFriends, faShieldAlt, faProcedures, faSeedling, faBiohazard, 
+    faCogs, faBookMedical 
+} from '@fortawesome/free-solid-svg-icons';
 
-const CarePlanBuilder = ({ patient, onCancel }) => {
+const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
+    // ESTADOS
     const [nandasGrouped, setNandasGrouped] = useState({});
-    const [expandedDomain, setExpandedDomain] = useState(null);
-    const [expandedClass, setExpandedClass] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
 
+    // ACORDEÓN NANDA
+    const [expandedDomain, setExpandedDomain] = useState(null);
+    const [expandedClass, setExpandedClass] = useState(null);
+
     const [selectedNanda, setSelectedNanda] = useState(null);
     const [nocsSugeridos, setNocsSugeridos] = useState([]);
-    
     const [evaluacionesNoc, setEvaluacionesNoc] = useState({}); 
     const [evaluatingNoc, setEvaluatingNoc] = useState(null); 
     const [currentScores, setCurrentScores] = useState({}); 
-    
     const [nicsBase, setNicsBase] = useState([]); 
     const [nicsCalculados, setNicsCalculados] = useState([]); 
     const [selectedNics, setSelectedNics] = useState([]); 
+
+    const domainIconMap = {
+        1: faHeart, 2: faAppleAlt, 3: faToilet, 4: faWalking, 5: faBrain, 
+        6: faUserFriends, 7: faCogs, 8: faProcedures, 9: faSeedling, 
+        10: faShieldAlt, 11: faBiohazard, 12: faProcedures, 13: faSeedling    
+    };
 
     useEffect(() => {
         const fetchNandas = async () => {
@@ -26,18 +39,22 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda`);
                 const data = await res.json();
                 const agrupado = data.reduce((acc, curr) => {
-                    const domName = curr.dominio ? `Dominio - ${curr.dominio.nombre}` : "Sin Dominio Definido";
-                    const className = curr.clase ? `Clase - ${curr.clase.nombre}` : "Sin Clase Definida";
+                    if (!curr.dominio) return acc;
+                    const domId = curr.dominio.codigo;
+                    const domName = curr.dominio.nombre;
+                    const className = curr.clase ? curr.clase.nombre : "Sin Clase Definida";
                     
-                    if (!acc[domName]) acc[domName] = {};
-                    if (!acc[domName][className]) acc[domName][className] = [];
-                    acc[domName][className].push(curr);
+                    if (!acc[domId]) {
+                        acc[domId] = { nombre: domName, icon: domainIconMap[domId] || faBookMedical, clases: {}, totalDiagnosticos: 0 };
+                    }
+                    if (!acc[domId].clases[className]) acc[domId].clases[className] = [];
+                    
+                    acc[domId].clases[className].push(curr);
+                    acc[domId].totalDiagnosticos++;
                     return acc;
                 }, {});
                 setNandasGrouped(agrupado);
-            } catch (error) { 
-                console.error("Error cargando NANDA:", error);
-            }
+            } catch (error) { console.error("Error cargando NANDA:", error); }
         };
         fetchNandas();
     }, []);
@@ -49,18 +66,18 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
         setIsSearching(true);
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda/search/${value}`);
-            if (res.ok) setSearchResults(await res.json());
+            if (res.ok) {
+                setSearchResults(await res.json());
+                setExpandedDomain(null);
+                setExpandedClass(null);
+            }
         } catch (error) { console.error(error); } 
         finally { setIsSearching(false); }
     };
 
     const handleSelectNanda = async (nanda) => {
         setSelectedNanda(nanda);
-        setSearchTerm("");
-        setEvaluacionesNoc({});
-        setNicsBase([]);
-        setNicsCalculados([]);
-        setSelectedNics([]); 
+        setSearchTerm(""); setEvaluacionesNoc({}); setNicsBase([]); setNicsCalculados([]); setSelectedNics([]); 
         
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/from-nanda/${nanda.codigo}`);
@@ -74,19 +91,14 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
                 const mapaData = await resMapa.json();
                 const codigosNic = mapaData.nic_sugeridos.map(n => n.codigo);
                 const resNic = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/list`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ codigos: codigosNic })
                 });
                 if(resNic.ok) {
                     const dataNics = await resNic.json();
                     const nicsEnriquecidos = dataNics.map(nic => {
                         const infoMapa = mapaData.nic_sugeridos.find(n => n.codigo === nic.codigo);
-                        return { 
-                            ...nic, 
-                            coincidenciaBase: infoMapa?.coincidencia || 0,
-                            nocs_asociados: infoMapa?.nocs_asociados || []
-                        };
+                        return { ...nic, coincidenciaBase: infoMapa?.coincidencia || 0, nocs_asociados: infoMapa?.nocs_asociados || [] };
                     });
                     setNicsBase(nicsEnriquecidos);
                 }
@@ -95,13 +107,9 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
     };
 
     const handleBackToSearch = () => {
-        setSelectedNanda(null);
-        setSearchTerm("");
-        setNocsSugeridos([]);
-        setEvaluacionesNoc({});
-        setNicsBase([]);
-        setNicsCalculados([]);
-        setSelectedNics([]);
+        setSelectedNanda(null); setSearchTerm(""); setNocsSugeridos([]);
+        setEvaluacionesNoc({}); setNicsBase([]); setNicsCalculados([]); setSelectedNics([]);
+        setExpandedDomain(null); setExpandedClass(null);
     };
 
     const openEvaluationModal = (noc) => {
@@ -136,15 +144,12 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
         const nuevasEvaluaciones = { ...evaluacionesNoc };
         delete nuevasEvaluaciones[codigoNoc];
         setEvaluacionesNoc(nuevasEvaluaciones);
-        
         if(Object.keys(nuevasEvaluaciones).length === 0) setSelectedNics([]);
         recalcularNics(nuevasEvaluaciones);
     };
 
     const recalcularNics = (evaluacionesActuales) => {
-        if(Object.keys(evaluacionesActuales).length === 0) {
-            return setNicsCalculados([]); 
-        }
+        if(Object.keys(evaluacionesActuales).length === 0) return setNicsCalculados([]); 
 
         const palabrasAgudas = ["manejo", "administración", "control", "terapia", "monitorización", "cuidados"];
         const palabrasMantenimiento = ["enseñanza", "fomento", "apoyo", "asesoramiento", "mejora", "educación", "prevención"];
@@ -177,217 +182,359 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
     };
 
     const toggleNicSelection = (codigoNic) => {
-        setSelectedNics(prev => 
-            prev.includes(codigoNic) 
-                ? prev.filter(c => c !== codigoNic) 
-                : [...prev, codigoNic] 
-        );
+        setSelectedNics(prev => prev.includes(codigoNic) ? prev.filter(c => c !== codigoNic) : [...prev, codigoNic] );
     };
 
     const handleSaveCarePlan = async () => {
         if (selectedNics.length === 0 || Object.keys(evaluacionesNoc).length === 0) return;
 
-        // 🟢 LIMPIEZA DEL PAYLOAD: Enviamos solo lo estrictamente necesario
+        const idPacienteSeguro = patient?._id || patient?.paciente?._id || patient?.data?._id || patient?.id;
+        if (!idPacienteSeguro) { showToast("Error crítico: ID de paciente no encontrado.", "error"); return; }
+
         const payloadPlan = {
-            pacienteId: patient?._id || patient?.id, // Nos aseguramos de tomar el ID del paciente
+            pacienteId: idPacienteSeguro,
+            ingresoId: patient?.ingresoId, 
             fecha: new Date().toISOString(),
-            nanda: {
-                codigo: selectedNanda.codigo,
-                nombre: selectedNanda.nombre
-            },
+            nanda: { codigo: selectedNanda.codigo, nombre: selectedNanda.nombre },
             nocsEvaluados: Object.entries(evaluacionesNoc).map(([codigo, data]) => ({
-                codigo,
-                promedio: data.promedio,
-                indicadores: data.indicadores
+                codigo, promedio: data.promedio, indicadores: data.indicadores
             })),
-            nicsSeleccionados: nicsCalculados
-                .filter(n => selectedNics.includes(n.codigo))
-                .map(n => ({
-                    codigo: n.codigo,
-                    nombre: n.nombre
-                }))
+            nicsSeleccionados: nicsCalculados.filter(n => selectedNics.includes(n.codigo)).map(n => ({
+                codigo: n.codigo, nombre: n.nombre
+            }))
         };
 
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payloadPlan)
             });
 
             if (response.ok) {
-                alert("Plan de Cuidados guardado exitosamente");
-                onCancel(); 
+                showToast("Plan de Cuidados guardado exitosamente", "success");
+                if (onCancel) onCancel(); 
             } else {
                 const errorData = await response.json();
-                console.error("Detalle del error BD:", errorData);
-                alert("Hubo un error al guardar el plan en la base de datos.");
+                showToast(errorData.error || "Error al guardar el plan", "error");
             }
         } catch (error) {
-            console.error("Error guardando el plan", error);
+            showToast("Error de conexión al guardar el plan.", "error");
         }
     };
 
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-lg relative">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">
-                Plan de cuidado - {patient?.nombre || "Paciente Desconocido"}
+    // FUNCIONES DE AGRUPACIÓN DINÁMICA (DIVISION EN 3 PARTES)
+    const getGroupedNocs = () => {
+        const groups = { alta: [], media: [], baja: [] };
+        nocsSugeridos.forEach((noc, idx) => {
+            const ratio = idx / nocsSugeridos.length;
+            if (ratio < 1/3) groups.alta.push(noc);
+            else if (ratio < 2/3) groups.media.push(noc);
+            else groups.baja.push(noc);
+        });
+        return groups;
+    };
+
+    const getGroupedNics = () => {
+        if (nicsCalculados.length === 0) return { estrella: null, alta: [], media: [], baja: [] };
+        const estrella = nicsCalculados[0]; // La primera es la principal
+        const rest = nicsCalculados.slice(1);
+        const groups = { estrella, alta: [], media: [], baja: [] };
+        
+        rest.forEach((nic, idx) => {
+            if (rest.length === 0) return;
+            const ratio = idx / rest.length;
+            if (ratio < 1/3) groups.alta.push(nic);
+            else if (ratio < 2/3) groups.media.push(nic);
+            else groups.baja.push(nic);
+        });
+        return groups;
+    };
+
+    const groupedNocs = getGroupedNocs();
+    const groupedNics = getGroupedNics();
+
+    const SectionTitle = ({ children, step }) => (
+        <div className="flex items-center gap-3 mb-6 mt-2">
+            {step && <div className="w-10 h-10 rounded-xl bg-[#16a09e] flex items-center justify-center text-white text-base font-black shrink-0 shadow-sm">{step}</div>}
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-[#0f3460]">
+                {children}
             </h2>
+            <div className="flex-1 h-px bg-gray-100 ml-3" />
+        </div>
+    );
+
+    return (
+        <div className="bg-white p-5 md:p-8 rounded-3xl shadow-sm border border-gray-100 font-sans relative">
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-gray-100 mb-6 gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-[#0f3460] tracking-tight">
+                        Creador de Plan de Cuidado
+                    </h1>
+                    <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faUser} className="text-[#16a09e]" />
+                        Paciente: <span className="text-gray-800 font-bold">{patient?.nombre?.nombre || patient?.paciente?.nombre?.nombre || "No especificado"}</span>
+                    </p>
+                </div>
+                <button onClick={onCancel} className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-sm w-full md:w-auto">
+                    Volver al listado
+                </button>
+            </div>
 
             {!selectedNanda ? (
-                <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700">1. Seleccione un Diagnóstico NANDA</h3>
-                    <div className="mb-6 relative">
-                        <input type="text" placeholder="Buscar por nombre, síntomas o definición..." value={searchTerm} onChange={handleSearch} className="w-full p-3 border-2 border-blue-300 rounded-lg shadow-sm focus:border-blue-600 focus:outline-none" />
+                <div className="animate-fade-in space-y-6">
+                    <SectionTitle step="1">Diagnóstico (NANDA)</SectionTitle>
+
+                    {/* Buscador */}
+                    <div className="relative mb-6">
+                        <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#16a09e] text-lg" />
+                        <input 
+                            type="text" 
+                            placeholder="Buscar diagnóstico por nombre o síntoma..." 
+                            value={searchTerm} 
+                            onChange={handleSearch} 
+                            className="w-full pl-14 pr-6 py-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-medium focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-4 focus:ring-[#16a09e]/10 transition-all placeholder-gray-400"
+                        />
                     </div>
 
                     {searchTerm.length >= 3 ? (
-                        <div className="border border-blue-200 rounded-md bg-blue-50/30 p-2">
+                        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                             {searchResults.length > 0 ? (
-                                <ul className="space-y-2">
+                                <ul className="divide-y divide-gray-100">
                                     {searchResults.map((nanda) => (
-                                        <li key={nanda.codigo} className="bg-white p-3 rounded border hover:border-blue-400 cursor-pointer flex justify-between items-center" onClick={() => handleSelectNanda(nanda)}>
-                                            <div className="pr-4"><p className="font-bold text-blue-900">{nanda.nombre}</p><p className="text-xs text-gray-600 line-clamp-2 mt-1">{nanda.definicion}</p></div>
-                                            <Button type="button" className="text-xs bg-blue-600">Seleccionar</Button>
+                                        <li key={nanda.codigo} className="p-5 hover:bg-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors">
+                                            <div className="flex-1">
+                                                <p className="font-bold text-[#0f3460] text-base">{nanda.nombre}</p>
+                                                <p className="text-sm text-gray-500 mt-1 leading-relaxed">{nanda.definicion}</p>
+                                            </div>
+                                            <button onClick={() => handleSelectNanda(nanda)} className="px-6 py-3 bg-[#16a09e]/10 text-[#16a09e] font-bold text-sm rounded-xl hover:bg-[#16a09e] hover:text-white transition-all w-full md:w-auto shrink-0">
+                                                Elegir Diagnóstico
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
-                            ) : (!isSearching && <p className="text-gray-500 text-sm p-2">Sin resultados.</p>)}
+                            ) : (!isSearching && <p className="text-gray-500 text-sm p-8 text-center font-semibold">No se encontraron diagnósticos.</p>)}
                         </div>
                     ) : (
-                        <div className="border border-gray-300 rounded-md overflow-hidden">
-                            {Object.keys(nandasGrouped).map((dominio) => (
-                                <div key={dominio} className="border-b border-gray-200 last:border-0">
-                                    <button type="button" className="w-full text-left p-3 bg-gray-100 font-medium text-blue-900 flex justify-between" onClick={() => setExpandedDomain(expandedDomain === dominio ? null : dominio)}>
-                                        <span>{dominio}</span><span>{expandedDomain === dominio ? '▼' : '▶'}</span>
-                                    </button>
-                                    {expandedDomain === dominio && (
-                                        <div className="pl-4 pr-2 py-2 bg-white">
-                                            {Object.keys(nandasGrouped[dominio]).map((clase) => (
-                                                <div key={clase} className="mb-2 border-l-2 border-blue-400 pl-2">
-                                                    <button type="button" className="w-full text-left p-2 text-sm text-gray-700 font-medium flex justify-between" onClick={() => setExpandedClass(expandedClass === clase ? null : clase)}>
-                                                        <span>{clase}</span><span>{expandedClass === clase ? '▼' : '▶'}</span>
-                                                    </button>
-                                                    {expandedClass === clase && (
-                                                        <ul className="pl-6 mt-1 space-y-2">
-                                                            {nandasGrouped[dominio][clase].map((nanda) => (
-                                                                <li key={nanda.codigo} className="flex justify-between items-center bg-gray-50 p-3 text-sm rounded border">
-                                                                    <span><strong className="text-blue-700">{nanda.nombre}</strong></span>
-                                                                    <Button type="button" onClick={() => handleSelectNanda(nanda)} className="text-xs">Seleccionar NANDA</Button>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
+                        /*DOMINIOS Y CLASES*/
+                        <div className="flex flex-col gap-4">
+                            {Object.entries(nandasGrouped).map(([id, dom]) => {
+                                const isExpanded = expandedDomain === id;
+                                return (
+                                    <div key={id} className={`bg-white rounded-2xl border transition-all duration-300 shadow-sm overflow-hidden ${isExpanded ? 'border-[#16a09e] shadow-md' : 'border-gray-100 hover:border-[#16a09e]/50'}`}>
+                                        
+                                        <button 
+                                            onClick={() => {
+                                                setExpandedDomain(isExpanded ? null : id);
+                                                setExpandedClass(null);
+                                            }} 
+                                            className="w-full p-5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 transition-colors shadow-inner ${isExpanded ? 'bg-[#16a09e] text-white' : 'bg-gray-50 text-[#0f3460]'}`}>
+                                                    <FontAwesomeIcon icon={dom.icon} />
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                                <div>
+                                                    <p className="text-xs font-black text-[#16a09e] uppercase tracking-wider mb-1">Dominio de salud</p>
+                                                    <p className="text-base font-bold text-[#0f3460] leading-snug">{dom.nombre}</p>
+                                                    <p className="text-xs text-gray-500 mt-1 font-medium">{dom.totalDiagnosticos} opciones disponibles</p>
+                                                </div>
+                                            </div>
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-[#16a09e]/10 text-[#16a09e] rotate-180' : 'bg-gray-100 text-gray-400'}`}>
+                                                <FontAwesomeIcon icon={faChevronDown} />
+                                            </div>
+                                        </button>
+
+                                        {isExpanded && (
+                                            <div className="p-5 bg-gray-50 border-t border-gray-100">
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    {Object.keys(dom.clases).map((clase) => {
+                                                        const isClassExpanded = expandedClass === clase;
+                                                        return (
+                                                            <div key={clase} className={`bg-white rounded-xl border transition-all shadow-sm overflow-hidden ${isClassExpanded ? 'border-[#16a09e]/50' : 'border-gray-200'}`}>
+                                                                <button 
+                                                                    onClick={() => setExpandedClass(isClassExpanded ? null : clase)} 
+                                                                    className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                                                                >
+                                                                    <div>
+                                                                        <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider mb-1 inline-block">Clase</span>
+                                                                        <p className="text-sm font-bold text-[#0f3460]">{clase}</p>
+                                                                    </div>
+                                                                    <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 text-sm transition-transform ${isClassExpanded ? 'rotate-180 text-[#16a09e]' : ''}`} />
+                                                                </button>
+
+                                                                {isClassExpanded && (
+                                                                    <ul className="divide-y divide-gray-100 border-t border-gray-100 bg-white">
+                                                                        {dom.clases[clase].map((nanda) => (
+                                                                            <li key={nanda.codigo} className="p-4 flex flex-col items-start gap-3 hover:bg-gray-50 transition-colors group">
+                                                                                <div className="w-full">
+                                                                                    <p className="text-sm font-bold text-gray-900 leading-snug group-hover:text-[#16a09e] transition-colors">{nanda.nombre}</p>
+                                                                                    <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{nanda.definicion}</p>
+                                                                                </div>
+                                                                                <button 
+                                                                                    onClick={() => handleSelectNanda(nanda)} 
+                                                                                    className="w-full px-4 py-2 bg-gray-100 text-[#0f3460] font-bold text-xs rounded-lg group-hover:bg-[#16a09e] group-hover:text-white transition-all shadow-sm"
+                                                                                >
+                                                                                    Elegir Diagnóstico
+                                                                                </button>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
             ) : (
-                <div className="space-y-6 animate-fade-in">
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 flex justify-between items-center shadow-sm">
-                        <div>
-                            <h3 className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Diagnóstico NANDA Activo</h3>
-                            <p className="text-lg font-medium text-blue-900">{selectedNanda.nombre}</p>
+                <div className="space-y-8 animate-fade-in">
+                    
+                    <div className="bg-[#0f3460] p-5 md:p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center shadow-md gap-4 relative overflow-hidden">
+                        <FontAwesomeIcon icon={faStethoscope} className="absolute -right-4 -bottom-4 text-8xl text-white opacity-5" />
+                        <div className="relative z-10">
+                            <span className="text-[10px] font-bold text-[#16a09e] uppercase tracking-widest bg-white/10 px-2 py-1 rounded-md">Diagnóstico Seleccionado</span>
+                            <h3 className="text-xl md:text-2xl font-bold text-white mt-2 leading-tight">{selectedNanda.nombre}</h3>
                         </div>
-                        <Button type="button" variant="secondary" onClick={handleBackToSearch}>Cambiar Diagnóstico</Button>
+                        <button onClick={handleBackToSearch} className="relative z-10 w-full md:w-auto px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-sm font-bold transition-all">
+                            Cambiar
+                        </button>
                     </div>
 
-                    <h3 className="text-lg font-semibold text-gray-700 border-b pb-2">2. Evalúe los Resultados Esperados (NOC)</h3>
-                    <ul className="space-y-3">
-                        {/* 🟢 CAMBIO AQUÍ: Agregamos index para asegurar que los primeros 3 sean recomendados */}
-                        {nocsSugeridos.map((noc, index) => {
-                            const isEvaluated = !!evaluacionesNoc[noc.codigo];
-                            const isRecomendado = index < 3 || noc.coincidencia >= 57;
-
-                            return (
-                                <li key={noc.codigo} className={`p-4 border rounded-lg shadow-sm transition-shadow ${isEvaluated ? 'bg-green-50 border-green-300' : 'bg-white'}`}>
-                                    <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <span className="font-bold text-gray-800">{noc.nombre}</span>
-                                                {noc.coincidencia && !isEvaluated && (
-                                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${isRecomendado ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-orange-100 text-orange-700 border border-orange-300'}`}>
-                                                        {isRecomendado ? 'Recomendado' : 'Opcional'}
-                                                    </span>
-                                                )}
-                                                {isEvaluated && (
-                                                    <span className="text-xs px-2 py-1 rounded-full font-bold bg-green-200 text-green-800">
-                                                        Evaluado (Promedio: {evaluacionesNoc[noc.codigo].promedio})
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-gray-500 line-clamp-1">{noc.definicion}</span>
-                                        </div>
-                                        
-                                        <div className="flex gap-2">
-                                            {isEvaluated ? (
-                                                <>
-                                                    <Button type="button" variant="secondary" onClick={() => openEvaluationModal(noc)} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800">Volver a Evaluar</Button>
-                                                    <Button type="button" variant="secondary" onClick={() => handleDeleteEvaluation(noc.codigo)} className="text-xs bg-red-100 hover:bg-red-200 text-red-800 border-red-200">Borrar</Button>
-                                                </>
-                                            ) : (
-                                                <Button type="button" onClick={() => openEvaluationModal(noc)}>Evaluar Indicadores</Button>
-                                            )}
-                                        </div>
+                    <div>
+                        <SectionTitle step="2">Resultados Esperados (NOC)</SectionTitle>
+                        <p className="text-sm text-gray-500 mb-5 md:ml-14">Evalúe el estado inicial del paciente. Las metas están ordenadas por prioridad.</p>
+                        
+                        <div className="md:ml-14 space-y-6">
+                            {[
+                                { title: "Altamente Recomendado", data: groupedNocs.alta, color: "text-amber-600", bgBadge: "bg-amber-100 text-amber-700" },
+                                { title: "Recomendados", data: groupedNocs.media, color: "text-blue-600", bgBadge: "bg-blue-50 text-blue-600" },
+                                { title: "Opcionales", data: groupedNocs.baja, color: "text-gray-500", bgBadge: "bg-gray-100 text-gray-600" }
+                            ].map((group, groupIdx) => group.data.length > 0 && (
+                                <div key={groupIdx}>
+                                    <h4 className={`text-xs font-black uppercase tracking-wider mb-3 ml-2 ${group.color}`}>{group.title}</h4>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {group.data.map((noc) => {
+                                            const isEvaluated = !!evaluacionesNoc[noc.codigo];
+                                            return (
+                                                <div key={noc.codigo} className={`p-5 rounded-2xl border transition-all ${isEvaluated ? 'bg-[#16a09e]/5 border-[#16a09e]/30' : 'bg-white border-gray-200'}`}>
+                                                    <div className="flex justify-between items-start flex-col md:flex-row gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                                                <span className="font-bold text-[#0f3460] text-base">{noc.nombre}</span>
+                                                                {!isEvaluated && <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${group.bgBadge} uppercase tracking-wider`}>{group.title.split(' ')[0]}</span>}
+                                                                {isEvaluated && <span className="text-[10px] font-bold bg-[#16a09e] text-white px-2.5 py-1 rounded-md uppercase tracking-wide">Evaluado (Promedio: {evaluacionesNoc[noc.codigo].promedio})</span>}
+                                                            </div>
+                                                            <p className="text-sm text-gray-600 leading-relaxed">{noc.definicion}</p>
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                                                            {isEvaluated ? (
+                                                                <>
+                                                                    <button onClick={() => openEvaluationModal(noc)} className="px-5 py-2.5 text-sm font-bold bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors w-full sm:w-auto">Editar</button>
+                                                                    <button onClick={() => handleDeleteEvaluation(noc.codigo)} className="px-5 py-2.5 text-sm font-bold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors w-full sm:w-auto">Borrar</button>
+                                                                </>
+                                                            ) : (
+                                                                <button onClick={() => openEvaluationModal(noc)} className="px-6 py-3 text-sm font-bold bg-[#16a09e] text-white rounded-xl hover:bg-[#128a88] shadow-sm transition-all w-full sm:w-auto">
+                                                                    Evaluar
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
                     {nicsCalculados.length > 0 && (
-                        <div className="mt-8 animate-fade-in border-t pt-6 bg-gray-50 -mx-6 px-6 pb-6 rounded-b-lg">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-4 pt-4">
-                                3. Intervenciones (NIC) Ajustadas a tu Evaluación
-                                <span className="block text-sm font-normal text-gray-500 mt-1">Selecciona una o más intervenciones para aplicar al paciente.</span>
-                            </h3>
+                        <div className="animate-fade-in pt-6">
+                            <SectionTitle step="3">Intervenciones (NIC)</SectionTitle>
+                            <p className="text-sm text-gray-500 mb-6 md:ml-14">
+                                Seleccione las intervenciones que ejecutará.
+                            </p>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {nicsCalculados.map((nic, index) => {
-                                    const isGolden = index === 0; 
-                                    const isSelected = selectedNics.includes(nic.codigo); 
-                                    
-                                    return (
-                                        <div 
-                                            key={nic.codigo} 
-                                            onClick={() => toggleNicSelection(nic.codigo)}
-                                            className={`p-4 rounded-lg shadow-sm relative overflow-hidden cursor-pointer transition-all duration-200
-                                                ${isSelected ? 'bg-green-50 ring-4 ring-green-500 border-transparent transform scale-[1.02]' : 
-                                                 isGolden ? 'bg-yellow-50/80 border-2 border-yellow-400 hover:bg-yellow-100' : 
-                                                 'bg-white border border-gray-200 hover:border-blue-400'}`}
-                                        >
-                                            <div className={`absolute top-0 right-0 px-3 py-1 text-xs font-bold rounded-bl-lg shadow
-                                                ${isSelected ? 'bg-green-500 text-white' : 
-                                                  isGolden ? 'bg-yellow-500 text-white' : 
-                                                  (nic.coincidenciaDinamica >= 57 ? 'bg-green-500 text-white' : 'bg-orange-400 text-white')}`}>
-                                                {isSelected ? 'Intervención Elegida' : 
-                                                 isGolden ? 'Plan Recomendado' : 
-                                                 (nic.coincidenciaDinamica >= 57 ? 'Recomendado' : 'Opcional')}
-                                            </div>
+                            <div className="md:ml-14 space-y-6">
 
-                                            <span className={`block font-bold pr-32 ${isSelected ? 'text-green-900' : (isGolden ? 'text-yellow-900' : 'text-gray-800')}`}>
-                                                {nic.nombre}
-                                            </span>
-                                            <span className="text-sm text-gray-600 line-clamp-2 mt-2">{nic.definicion}</span>
+                                {groupedNics.estrella && (
+                                    <div>
+                                        <h4 className="text-xs font-black uppercase tracking-wider mb-3 ml-2 text-amber-600">Intervención Principal</h4>
+                                        <div 
+                                            onClick={() => toggleNicSelection(groupedNics.estrella.codigo)}
+                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden group
+                                                ${selectedNics.includes(groupedNics.estrella.codigo) 
+                                                    ? 'bg-[#16a09e]/5 border-[#16a09e] shadow-md' 
+                                                    : 'bg-amber-50/30 border-amber-300 hover:bg-amber-50'}`}
+                                        >
+                                            <div className="flex justify-between items-center mb-2 gap-4">
+                                                <span className={`font-bold text-lg ${selectedNics.includes(groupedNics.estrella.codigo) ? 'text-[#0f3460]' : 'text-gray-900'}`}>
+                                                    {groupedNics.estrella.nombre}
+                                                </span>
+                                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${selectedNics.includes(groupedNics.estrella.codigo) ? 'border-[#16a09e] bg-[#16a09e]' : 'border-gray-300 bg-white'}`}>
+                                                    {selectedNics.includes(groupedNics.estrella.codigo) && <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />}
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-gray-600 leading-relaxed pr-8">{groupedNics.estrella.definicion}</p>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                )}
+
+                                {[
+                                    { title: "Altamente Recomendadas", data: groupedNics.alta },
+                                    { title: "Recomendadas", data: groupedNics.media },
+                                    { title: "Opcionales", data: groupedNics.baja }
+                                ].map((group, groupIdx) => group.data.length > 0 && (
+                                    <div key={groupIdx}>
+                                        <h4 className="text-xs font-black uppercase tracking-wider mb-3 ml-2 text-gray-500">{group.title}</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {group.data.map((nic) => {
+                                                const isSelected = selectedNics.includes(nic.codigo); 
+                                                return (
+                                                    <div 
+                                                        key={nic.codigo} 
+                                                        onClick={() => toggleNicSelection(nic.codigo)}
+                                                        className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group
+                                                            ${isSelected 
+                                                                ? 'bg-[#16a09e]/5 border-[#16a09e] border-2 shadow-sm' 
+                                                                : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                                                    >
+                                                        <div className="flex justify-between items-center mb-2 gap-4">
+                                                            <span className={`font-bold text-base ${isSelected ? 'text-[#0f3460]' : 'text-gray-800'}`}>
+                                                                {nic.nombre}
+                                                            </span>
+                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-[#16a09e] bg-[#16a09e]' : 'border-gray-300 bg-gray-50'}`}>
+                                                                {isSelected && <FontAwesomeIcon icon={faCheck} className="text-white text-[10px]" />}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 leading-relaxed pr-6">{nic.definicion}</p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                             
-                            <div className="mt-8 flex justify-end">
-                                <Button 
-                                    type="button" 
+                            <div className="mt-12 pt-6 border-t border-gray-100 flex justify-end">
+                                <button 
                                     onClick={handleSaveCarePlan}
                                     disabled={selectedNics.length === 0} 
-                                    className={`px-8 py-3 text-lg font-bold shadow-lg transition-transform hover:scale-105 ${selectedNics.length === 0 ? 'bg-gray-400 cursor-not-allowed opacity-70' : 'bg-green-600 hover:bg-green-700'}`}
+                                    className={`w-full md:w-auto px-10 py-4 text-sm uppercase tracking-wider font-bold rounded-2xl shadow-lg transition-all
+                                        ${selectedNics.length === 0 
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                                            : 'bg-[#16a09e] hover:bg-[#128a88] text-white hover:-translate-y-1 hover:shadow-[#16a09e]/30'}`}
                                 >
-                                    Comenzar Plan de Cuidado
-                                </Button>
+                                    Finalizar y Guardar Plan
+                                </button>
                             </div>
                         </div>
                     )}
@@ -395,45 +542,54 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
             )}
 
             {evaluatingNoc && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-                        <div className="p-6 border-b bg-blue-50/50 rounded-t-lg">
-                            <h3 className="text-xl font-bold text-blue-900">Evaluación: {evaluatingNoc.nombre}</h3>
-                            <p className="text-sm text-blue-700 mt-1">{evaluatingNoc.definicion}</p>
-                        </div>
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                         
-                        <div className="p-6 overflow-y-auto flex-1">
-                            <div className="flex justify-between items-center mb-4">
-                                <p className="text-sm font-semibold text-gray-700">Puntúe TODOS los indicadores del 1 (Grave) al 5 (Sano):</p>
-                                <span className="text-xs bg-gray-100 px-3 py-1 rounded-full font-mono text-gray-600">
-                                    {Object.keys(currentScores).length} / {evaluatingNoc.indicadores.length} respondidos
-                                </span>
+                        <div className="bg-[#0f3460] p-6 flex justify-between items-start text-white shrink-0 relative overflow-hidden">
+                            <FontAwesomeIcon icon={faBullseye} className="absolute -right-4 -bottom-4 text-8xl text-white opacity-5" />
+                            <div className="relative z-10 pr-8">
+                                <span className="bg-white/10 px-3 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase mb-2 inline-block">Evaluación Inicial</span>
+                                <h3 className="text-xl md:text-2xl font-bold leading-tight">{evaluatingNoc.nombre}</h3>
                             </div>
+                            <button onClick={() => { setEvaluatingNoc(null); setCurrentScores({}); }} className="text-white/50 hover:text-white bg-white/5 hover:bg-white/20 w-10 h-10 rounded-full transition-colors flex items-center justify-center shrink-0">
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
 
-                            <div className="space-y-3">
+                        <div className="p-4 md:p-6 overflow-y-auto bg-gray-50 flex-1">
+                            <p className="text-sm font-bold text-gray-600 mb-5">Puntúe la gravedad de cada indicador:</p>
+
+                            <div className="space-y-4">
                                 {evaluatingNoc.indicadores?.map((ind, i) => {
                                     const isAnswered = !!currentScores[ind.codigo];
                                     return (
-                                        <div key={i} className={`flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg border transition-colors ${isAnswered ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'}`}>
-                                            <span className={`text-sm font-medium md:w-1/2 mb-3 md:mb-0 ${isAnswered ? 'text-blue-900' : 'text-gray-700'}`}>
+                                        <div key={i} className={`flex flex-col lg:flex-row lg:items-center justify-between p-4 md:p-5 rounded-2xl border transition-all ${isAnswered ? 'bg-[#16a09e]/5 border-[#16a09e]/30 shadow-sm' : 'bg-white border-gray-200'}`}>
+                                            <span className={`text-sm font-semibold lg:w-1/2 mb-5 lg:mb-0 leading-relaxed ${isAnswered ? 'text-[#0f3460]' : 'text-gray-700'}`}>
                                                 {ind.texto}
                                             </span>
-                                            <div className="flex gap-2">
-                                                {[1, 2, 3, 4, 5].map(num => (
-                                                    <label key={num} className="cursor-pointer group">
-                                                        <input 
-                                                            type="radio" 
-                                                            name={`ind-${ind.codigo}`} 
-                                                            value={num} 
-                                                            checked={currentScores[ind.codigo] === num}
-                                                            onChange={() => handleScoreChange(ind.codigo, num)}
-                                                            className="peer hidden" 
-                                                        />
-                                                        <div className="w-10 h-10 flex items-center justify-center rounded-md border-2 border-gray-200 bg-white text-gray-500 font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 group-hover:border-blue-400 transition-all shadow-sm">
-                                                            {num}
-                                                        </div>
-                                                    </label>
-                                                ))}
+                                            
+                                            <div className="flex items-center gap-2 md:gap-3 lg:w-1/2 justify-between lg:justify-end">
+                                                <span className="text-[10px] md:text-xs font-bold text-red-500 w-10 md:w-12 text-right uppercase">Grave</span>
+                                                <div className="flex gap-1.5 md:gap-2">
+                                                    {[1, 2, 3, 4, 5].map(num => (
+                                                        <label key={num} className="cursor-pointer relative group">
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`ind-${ind.codigo}`} 
+                                                                value={num} 
+                                                                checked={currentScores[ind.codigo] === num}
+                                                                onChange={() => handleScoreChange(ind.codigo, num)}
+                                                                className="peer hidden" 
+                                                            />
+                                                            <div className="w-9 h-9 md:w-11 md:h-11 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-white text-gray-500 font-bold peer-checked:bg-[#16a09e] peer-checked:text-white peer-checked:border-[#16a09e] hover:border-[#16a09e]/50 transition-all shadow-sm">
+                                                                {num}
+                                                            </div>
+                                                            {num === 1 && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-red-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Grave</span>}
+                                                            {num === 5 && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] text-green-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Sano</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <span className="text-[10px] md:text-xs font-bold text-green-500 w-10 md:w-12 text-left uppercase">Sano</span>
                                             </div>
                                         </div>
                                     );
@@ -441,20 +597,20 @@ const CarePlanBuilder = ({ patient, onCancel }) => {
                             </div>
                         </div>
 
-                        <div className="p-6 border-t flex justify-end gap-3 bg-gray-50 rounded-b-lg">
-                            <Button type="button" variant="secondary" onClick={() => { setEvaluatingNoc(null); setCurrentScores({}); }}>
+                        <div className="p-4 md:p-5 border-t border-gray-100 bg-white flex flex-col-reverse sm:flex-row justify-end gap-3 shrink-0 rounded-b-3xl">
+                            <button onClick={() => { setEvaluatingNoc(null); setCurrentScores({}); }} className="px-6 py-3.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-colors w-full sm:w-auto">
                                 Cancelar
-                            </Button>
-                            <Button 
-                                type="button" 
+                            </button>
+                            <button 
                                 onClick={handleSaveEvaluation}
                                 disabled={Object.keys(currentScores).length < evaluatingNoc.indicadores.length}
-                                className={Object.keys(currentScores).length < evaluatingNoc.indicadores.length ? 'opacity-50 cursor-not-allowed bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}
+                                className={`px-8 py-3.5 rounded-xl font-bold text-sm shadow-md transition-all w-full sm:w-auto
+                                    ${Object.keys(currentScores).length < evaluatingNoc.indicadores.length 
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                                        : 'bg-[#16a09e] text-white hover:bg-[#128a88]'}`}
                             >
-                                {Object.keys(currentScores).length < evaluatingNoc.indicadores.length 
-                                    ? `Faltan ${evaluatingNoc.indicadores.length - Object.keys(currentScores).length}` 
-                                    : 'Guardar Evaluación'}
-                            </Button>
+                                Guardar Evaluación
+                            </button>
                         </div>
                     </div>
                 </div>
