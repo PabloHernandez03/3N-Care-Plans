@@ -42,7 +42,7 @@ router.put("/:id", async (req, res) => {
   try {
     const planActualizado = await CarePlan.findByIdAndUpdate(
       req.params.id,
-      { estado: req.body.estado },
+      req.body, 
       { new: true }
     );
     res.json(planActualizado);
@@ -50,5 +50,6 @@ router.put("/:id", async (req, res) => {
     res.status(500).json({ error: "Error al actualizar el plan" });
   }
 });
+
 
 export default router;

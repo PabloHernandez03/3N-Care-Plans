@@ -12,6 +12,7 @@ import patientRoutes from "./routes/patient.routes.js";
 import carePlanRoutes from './routes/careplan.routes.js';
 import enfermeroRoutes from "./routes/enfermero.routes.js";
 import adminRoutes from "./routes/administrador.routes.js";
+import admissionRoutes from './routes/admission.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -31,8 +32,8 @@ app.use('/api/patients',  patientRoutes);
 app.use('/api/careplans', carePlanRoutes);
 app.use('/api/enfermero', enfermeroRoutes);
 app.use('/api/admin',     adminRoutes);
+app.use('/api/admissions', admissionRoutes);
 
-// Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../public')));
     app.get('*', (req, res) => {
