@@ -86,7 +86,6 @@ const RadioItem = ({ name, value, label, className = "" }) => (
 );
 
 /* ─── Componente principal ───────────────────────────────────────────────── */
-// 🟢 RECIBIMOS showToast COMO PROP
 const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
     const [patientList, setPatientList]         = useState([]);
     const [selectedOption, setSelectedOption]   = useState("");
@@ -169,6 +168,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         };
 
         if (selectedOption === "") {
+            // 🟢 NUEVO PACIENTE: Aprovechamos la transacción atómica del backend
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
             if (curpExists) { 
                 showToast("Ya existe un registro con esta CURP.", "error"); 
@@ -176,30 +176,26 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             }
             
             try {
+                // Unimos todo en un solo envío
+                const payloadCompleto = {
+                    ...patientPayload,
+                    ingreso: ingresoPayload
+                };
+
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(patientPayload)
+                    body: JSON.stringify(payloadCompleto)
                 });
                 
                 if (res.ok) { 
-                    const savedPatient = await res.json();
-                    const pacienteReal = savedPatient.paciente || savedPatient.data || savedPatient;
-                    const pacienteId = pacienteReal._id;
+                    const savedData = await res.json();
                     
-                    const ingRes = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pacienteId: pacienteId, ingreso: ingresoPayload })
-                    });
-
-                    if (ingRes.ok) {
-                        const savedAdmission = await ingRes.json();
-                        pacienteReal.ingresoId = savedAdmission._id || savedAdmission.data?._id;
-                        
-                        showToast("Paciente y admisión registrados correctamente", "success");
-                        onPatientSaved(pacienteReal); 
-                    } else { 
-                        showToast("Paciente creado, pero hubo un error al registrar el ingreso.", "error"); 
-                    }
+                    // El backend devuelve { patient: {...}, admission: {...} }
+                    const pacienteReal = savedData.patient;
+                    pacienteReal.ingresoId = savedData.admission?._id; // Le inyectamos el ingreso recién creado
+                    
+                    showToast("Paciente e ingreso creados correctamente", "success");
+                    onPatientSaved(pacienteReal); 
                 } else { 
                     const err = await res.json(); 
                     showToast(`Error: ${err.error}`, "error"); 
@@ -208,6 +204,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 showToast("No se pudo conectar con el servidor.", "error"); 
             }
         } else {
+            // 🟢 PACIENTE EXISTENTE: Lo actualizamos
             try {
                 await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
