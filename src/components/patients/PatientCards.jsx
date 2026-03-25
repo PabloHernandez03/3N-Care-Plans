@@ -8,8 +8,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const bloodColors = {
   'A+': 'bg-red-100 text-red-600',   'A-': 'bg-red-100 text-red-700',
@@ -18,26 +18,22 @@ const bloodColors = {
   'O+': 'bg-blue-100 text-blue-600', 'O-': 'bg-blue-100 text-blue-700',
 };
 
-/** Nombre completo a partir del nuevo modelo */
 function getNombreCompleto(nombre = {}) {
   return [nombre.nombre, nombre.apellidoPaterno, nombre.apellidoMaterno]
     .filter(Boolean).join(' ');
 }
 
-/** "Apellido Paterno, Nombre(s)" — útil para listas ordenadas */
 function getNombreOrdenado(nombre = {}) {
   const apellidos = [nombre.apellidoPaterno, nombre.apellidoMaterno].filter(Boolean).join(' ');
   return apellidos ? `${apellidos}, ${nombre.nombre || ''}` : nombre.nombre || '—';
 }
 
-/** Iniciales para el avatar */
 function getInitials(nombre = {}) {
   const n = nombre.nombre?.[0] || '';
   const ap = nombre.apellidoPaterno?.[0] || '';
   return (ap + n).toUpperCase() || '?';
 }
 
-/** Edad calculada desde fechaNacimiento (Date ISO) */
 function calcularEdad(fechaNacimiento) {
   if (!fechaNacimiento) return null;
   const nac = new Date(fechaNacimiento);
@@ -84,8 +80,6 @@ const SORT_OPTIONS = [
     },
 ];
 
-// ── Sub-componentes ───────────────────────────────────────────────────────────
-
 function PatientAvatar({ nombre, sexo, foto, size = "md" }) {
   const dim = size === "sm" ? "w-8 h-8 text-xs" : "w-16 h-16 text-xl";
   const bgColor = sexo === 'M'
@@ -105,8 +99,6 @@ function PatientAvatar({ nombre, sexo, foto, size = "md" }) {
     </div>
   );
 }
-
-// ── PatientCard ───────────────────────────────────────────────────────────────
 
 function PatientCard({ p, onSelect, isSelected, onProfile, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -159,7 +151,6 @@ function PatientCard({ p, onSelect, isSelected, onProfile, onDelete }) {
       <div className="flex flex-col items-center text-center mb-4">
         <PatientAvatar nombre={p.nombre} sexo={sexo} foto={p.foto} />
         <h3 className={`mt-3 font-semibold text-sm leading-tight ${isSelected ? 'text-white' : 'text-gray-800'}`}>
-          {/* Apellidos en negrita, nombre en peso normal */}
           <span className="font-bold">
             {[p.nombre?.apellidoPaterno, p.nombre?.apellidoMaterno].filter(Boolean).join(' ')}
           </span>
@@ -242,7 +233,6 @@ function RowMenu({ p, onProfile, onDelete }) {
 
             {open && (
                 <>
-                    {/* overlay invisible para cerrar al hacer clic fuera */}
                     <div
                         className="fixed inset-0 z-10"
                         onClick={e => { e.stopPropagation(); setOpen(false); }}
@@ -270,13 +260,12 @@ function RowMenu({ p, onProfile, onDelete }) {
     );
 }
 
-// ── Componente principal ──────────────────────────────────────────────────────
-
 export default function PatientCards({
     allPatients = [], onSelectPatient,
     sort, sortDir, onSortChange,
     page, onPageChange,
     gridPageSize, listPageSize, onPageSizeChange,
+    onDeletePatient, showToast
 }) {
   const [selected, setSelected] = useState(null);
   const [view, setView]         = useState('grid');
@@ -296,8 +285,9 @@ export default function PatientCards({
     try {
         await axios.delete(`${import.meta.env.VITE_API_URL}/api/patients/${confirmDelete._id}`);
         onDeletePatient?.(confirmDelete._id);
+        showToast("Paciente y registros eliminados exitosamente", "success");
     } catch {
-        alert('No se pudo eliminar el paciente.');
+        showToast("No se pudo eliminar el paciente", "error");
     } finally {
         setConfirmDelete(null);
     }
@@ -382,18 +372,18 @@ export default function PatientCards({
           </div>
           {/* Fila 2: Ordenamiento + vista */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-gray-400 font-normal text-sm">
-              {filtered.length === 0
-                  ? <span className="text-xs text-gray-400 italic">Sin resultados para "{search}"</span>
-                  : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filtered.length)} de ${filtered.length}`
-              }
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+            <div>
+              <span className="text-gray-400 font-normal text-sm">
+                {filtered.length === 0
+                    ? <span className="text-xs text-gray-400 italic">Sin resultados para "{search}"</span>
+                    : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filtered.length)} de ${filtered.length}`
+                }
+              </span>
+            </div>
+          <div className="flex items-center gap-2 flex-wrap justify-end ml-auto">
 
               {/* Botones de orden */}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 justify-end">
                   {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
                       const isActive = sort === key;
                       const isDesc   = isActive && sortDir === 'desc';
@@ -425,7 +415,7 @@ export default function PatientCards({
               </div>
 
               {/* Toggle vista */}
-              <div className="flex bg-gray-100 rounded-lg p-1 gap-1 shrink-0">
+              <div className="flex bg-gray-100 rounded-lg p-1 gap-1 shrink-0 ml-auto sm:ml-0">
                   {[['grid', faTh], ['list', faList]].map(([v, icon]) => (
                       <button key={v} onClick={() => handleViewChange(v)}
                               className={`p-1.5 rounded-md transition-colors
@@ -450,7 +440,7 @@ export default function PatientCards({
                     onSelect={handleSelect}
                     isSelected={selected === p._id}
                     onProfile={handleProfile}
-                    onDelete={handleDeleteRequest}   // ← nuevo
+                    onDelete={handleDeleteRequest}
                 />
             ))}
         </div>
@@ -461,7 +451,6 @@ export default function PatientCards({
         <div className="overflow-x-auto rounded-xl">
           <div className="min-w-[640px] space-y-2 m-0.5">
 
-            {/* Cabecera */}
             <div className="bg-white rounded-xl px-6 py-3 grid
                             grid-cols-[3fr_1fr_1fr_3fr_1fr_1fr]
                             gap-4 text-xs font-semibold text-gray-400 uppercase tracking-wide items-center">
@@ -474,7 +463,6 @@ export default function PatientCards({
               <span className="max-sm:hidden" />
             </div>
 
-            {/* Filas */}
             {patients.map(p => {
               const sexo       = p.demograficos?.sexo || p.sexo || '';
               const tipoSangre = p.demograficos?.tipoSangre || null;
@@ -488,7 +476,6 @@ export default function PatientCards({
                                  gap-4 items-center cursor-pointer transition-colors
                                  ${selected === p._id ? 'ring-2 ring-primario' : 'hover:bg-primario/5'}`}>
 
-                  {/* Nombre con avatar */}
                   <span className="flex items-center gap-3 font-medium text-gray-800 min-w-0">
                     <PatientAvatar nombre={p.nombre} sexo={sexo} size="sm" />
                     <span className="min-w-0">
@@ -532,11 +519,9 @@ export default function PatientCards({
         </div>
       )}
 
-      {/* Paginación */}
       {filtered.length > 0 && (
       <div className="flex flex-wrap items-center justify-center md:justify-between gap-3 mt-6 pt-4 border-t border-gray-100">
 
-          {/* Selector de cantidad por página */}
           <div className="flex items-center gap-2 text-xs text-gray-500">
               <span>Mostrar</span>
               {[10, 20, 50].map(n => (
@@ -566,7 +551,6 @@ export default function PatientCards({
                   ← Anterior
               </button>
 
-              {/* Páginas */}
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
                   .reduce((acc, n, idx, arr) => {
@@ -590,7 +574,6 @@ export default function PatientCards({
                   )
               }
 
-              {/* Siguiente */}
               <button
                   onClick={() => onPageChange?.(page + 1)}
                   disabled={page === totalPages}
@@ -603,9 +586,8 @@ export default function PatientCards({
       </div>
       )}
 
-      {/* Modal de confirmación de eliminación */}
       {confirmDelete && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
             onClick={() => setConfirmDelete(null)}>
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4"
                 onClick={e => e.stopPropagation()}>

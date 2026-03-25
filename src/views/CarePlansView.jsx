@@ -4,14 +4,14 @@ import { faCheckCircle, faExclamationCircle } from '@fortawesome/free-solid-svg-
 import CarePlanList from '@/components/care-plans/CarePlanList';
 import CarePlanForm from '@/components/care-plans/CarePlanForm';
 import CarePlanBuilder from '@/components/care-plans/CarePlanBuilder';
-import CarePlanDetail from '@/components/care-plans/CarePlanDetail'; // 🟢 NUEVO COMPONENTE
+import CarePlanDetail from '@/components/care-plans/CarePlanDetail';
 import Button from '@/components/shared/Button';
 
 export default function CarePlansView() {
     
     const [activeView, setActiveView] = useState('list');
     const [activePatient, setActivePatient] = useState(null);
-    const [activePlan, setActivePlan] = useState(null); // 🟢 ESTADO PARA EL PLAN SELECCIONADO
+    const [activePlan, setActivePlan] = useState(null);
     
     const [toast, setToast] = useState(null);
 
@@ -39,7 +39,7 @@ export default function CarePlansView() {
     return (
         <div className="space-y-6 relative min-h-screen pb-10">
             {toast && (
-                <div className={`fixed bottom-8 left-8 z-[9999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl text-white font-medium text-sm animate-fade-in ${toast.type === 'success' ? 'bg-[#16a09e]' : 'bg-red-500'}`}>
+                <div className={`fixed top-8 left-8 z-[9999] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl text-white font-medium text-sm animate-fade-in ${toast.type === 'success' ? 'bg-[#16a09e]' : 'bg-red-500'}`}>
                     <FontAwesomeIcon icon={toast.type === 'success' ? faCheckCircle : faExclamationCircle} className="text-xl" />
                     <span>{toast.message}</span>
                 </div>
@@ -67,7 +67,6 @@ export default function CarePlansView() {
                 </div>
             )}
 
-            {/* 🟢 NUEVA VISTA DE DETALLE */}
             {activeView === 'planDetail' && (
                 <div className="animate-fade-in">
                     <CarePlanDetail plan={activePlan} onBack={handleCancel} showToast={showToast} />

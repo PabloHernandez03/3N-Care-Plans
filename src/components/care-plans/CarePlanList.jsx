@@ -307,7 +307,7 @@ export default function CarePlanList({ onViewPlan, showToast, patientId }) {
                     </div>
 
                     {/* Botones de Ordenamiento */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap justify-end ml-auto">
                         <div className="flex flex-wrap gap-1.5">
                             {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
                                 const isActive = sort === key;

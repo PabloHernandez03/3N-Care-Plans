@@ -37,7 +37,7 @@ function sortPatients(patients, sort, dir) {
 
 const DEFAULT_PAGE_SIZE = 20;
 
-export default function PatientList() {
+export default function PatientList({ showToast }) {
     const [patients, setPatients] = useState([]);
     const [sort, setSort]         = useState('reciente');
     const [sortDir, setSortDir]   = useState('asc');
@@ -69,7 +69,7 @@ export default function PatientList() {
     }
 
     function handleDeletePatient(deleteId) {
-        setPatients(prev => prev.filter(p => p.id !== deleteId));
+        setPatients(prev => prev.filter(p => p._id !== deleteId)); 
     }
 
     return (
@@ -85,6 +85,7 @@ export default function PatientList() {
             onPageSizeChange={handlePageSizeChange}
             onSelectPatient={(p) => console.log('Seleccionado:', p)}
             onDeletePatient={handleDeletePatient}
+            showToast={showToast}
         />
     );
 }

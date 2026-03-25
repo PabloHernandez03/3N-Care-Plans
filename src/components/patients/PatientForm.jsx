@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faCalendar } from '@fortawesome/free-solid-svg-icons';
 
-/* ─── Utilidades ─────────────────────────────────────────────────────────── */
 const calcularEdad = (fechaStr) => {
     if (!fechaStr || fechaStr.length < 10) return null;
     const [d, m, y] = fechaStr.split('/');
@@ -15,7 +14,6 @@ const calcularEdad = (fechaStr) => {
     return edad;
 };
 
-/* ─── Clases reutilizables ───────────────────────────────────────────────── */
 const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 transition focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20";
 const selectCls = `${inputCls} appearance-none cursor-pointer`;
 
@@ -31,8 +29,7 @@ const Card = ({ children, className = "" }) => (
     </div>
 );
 
-/* ─── Componente principal ───────────────────────────────────────────────── */
-export default function PatientForm({ onCancel, onPatientSaved }) {
+export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
     const [edad, setEdad] = useState(null);
     const [sexo, setSexo] = useState('');
     const [tipoSangre, setTipoSangre] = useState('');
@@ -47,7 +44,6 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
         setEdad(calcularEdad(e.target.value));
     };
 
-    // Convierte DD/MM/AAAA → Date ISO para Mongoose
     const parseFecha = (str) => {
         const [d, m, y] = str.split('/');
         return new Date(`${y}-${m}-${d}T00:00:00`).toISOString();
@@ -81,13 +77,16 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
             });
 
             if (res.ok) {
+                showToast("Paciente registrado exitosamente", "success");
                 onPatientSaved(await res.json());
             } else {
                 const { error: msg } = await res.json();
                 setError(msg || 'Error al guardar el paciente.');
+                showToast(msg || 'Error al guardar el paciente.', 'error');
             }
         } catch {
             setError('No se pudo conectar con el servidor.');
+            showToast('No se pudo conectar con el servidor.', 'error');
         } finally {
             setLoading(false);
         }
@@ -97,7 +96,6 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
         <form onSubmit={handleSubmit} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
               className="space-y-6 font-sans">
 
-            {/* Encabezado */}
             <div className="flex items-center gap-3 pb-4 border-b-2 border-[#0f3460]/10">
                 <div className="w-9 h-9 rounded-lg bg-primario flex items-center justify-center text-white">
                     <FontAwesomeIcon icon={faUser} />
@@ -108,7 +106,6 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
                 </div>
             </div>
 
-            {/* Nombre completo */}
             <Card>
                 <FieldLabel>Nombre completo</FieldLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -130,7 +127,6 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
                 </div>
             </Card>
 
-            {/* CURP + Demográficos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <FieldLabel htmlFor="curp">CURP <span className="text-red-400">*</span></FieldLabel>
@@ -181,14 +177,12 @@ export default function PatientForm({ onCancel, onPatientSaved }) {
                 </Card>
             </div>
 
-            {/* Error */}
             {error && (
                 <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 font-medium">
                     ⚠ {error}
                 </div>
             )}
 
-            {/* Acciones */}
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t-2 border-[#0f3460]/10">
                 <button type="button" onClick={onCancel}
                         className="w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-all">
