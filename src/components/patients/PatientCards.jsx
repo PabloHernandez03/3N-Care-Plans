@@ -100,7 +100,7 @@ function PatientAvatar({ nombre, sexo, foto, size = "md" }) {
   );
 }
 
-function PatientCard({ p, onSelect, isSelected, onProfile, onDelete }) {
+function PatientCard({ p, onSelect, isSelected, onProfile, onDelete, onEdit }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const tipoSangre  = p.demograficos?.tipoSangre || null;
   const sexo        = p.demograficos?.sexo || p.sexo || '';
@@ -220,7 +220,7 @@ function PatientCard({ p, onSelect, isSelected, onProfile, onDelete }) {
   );
 }
 
-function RowMenu({ p, onProfile, onDelete }) {
+function RowMenu({ p, onProfile, onDelete, onEdit }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -487,7 +487,7 @@ export default function PatientCards({
                   </span>
 
                   <div className="sm:hidden flex justify-center relative">
-                      <RowMenu p={p} onProfile={handleProfile} onDelete={handleDeleteRequest} />
+                      <RowMenu p={p} onProfile={handleProfile} onDelete={handleDeleteRequest}/>
                   </div>
 
                   <span className="text-gray-500">
