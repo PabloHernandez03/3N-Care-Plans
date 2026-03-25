@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Patient from "../models/Patient.js";
 import ClinicalRecord from "../models/ClinicalRecord.js";
 import Admission from "../models/Admission.js";
+import CarePlan from "../models/CarePlan.js";
 
 const router = express.Router();
 
@@ -162,6 +163,26 @@ router.put("/:id/expediente", async (req, res) => {
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: "Error al actualizar el expediente" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const { id } = req.params;
+    await Patient.findByIdAndDelete(id, { session });
+    await ClinicalRecord.deleteMany({ pacienteId: id }, { session });
+    await Admission.deleteMany({ pacienteId: id }, { session });
+    await CarePlan.deleteMany({ pacienteId: id }, { session });
+    
+    await session.commitTransaction();
+    res.json({ message: "Paciente y todos sus registros eliminados correctamente" });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ error: "Error al eliminar el paciente y sus registros" });
+  } finally {
+    session.endSession();
   }
 });
 
