@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout.jsx';
 import Login from '../views/LoginView.jsx';
+import RegisterView from '../views/RegisterView.jsx';
 import DashboardView from '../views/DashBoardView.jsx';
 import PatientsView from '../views/PatientsView.jsx';
 import CarePlansView from '../views/CarePlansView.jsx';
@@ -10,7 +11,7 @@ import DictionaryView from '../views/DictionaryView.jsx';
 import AdminDashboardView from '../views/AdminDashboardView.jsx';
 
 import ProtegerRutas from '../components/auth/ProtegerRutas.jsx';
-// AQUÍ ESTABA EL PROBLEMA: Faltaba importar la ruta que acabamos de crear
+
 import AdminRoute from '../components/auth/AdminRoute.jsx'; 
 
 export default function Router() {
@@ -19,6 +20,7 @@ export default function Router() {
             <Routes>
                 {/* Ruta pública */}
                 <Route path="/" element={<Login />} />
+                <Route path="/register" element={<RegisterView />} />
 
                 {/* Vistas privadas con ProtegerRutas */}
                 <Route element={<ProtegerRutas />}>

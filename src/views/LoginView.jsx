@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logo from '@/assets/logo.png'
+import { useNavigate, Link } from 'react-router-dom'; 
 
 const carouselData = [
     {
@@ -83,16 +83,15 @@ const LoginView = () => {
     };
 
     return (
-        /* Cambiamos a flex-col por defecto (móvil) y lg:flex-row para escritorio */
+        
         <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-white to-gray-100">
            
-            {/* LADO IZQUIERDO: Formulario (Ocupa todo el ancho en móvil) */}
             <div className="w-full lg:flex-[1.4] flex flex-col justify-center items-center px-6 md:px-12 py-10 lg:py-0 bg-gray-50 min-h-screen lg:min-h-0">
                 <div className="w-full max-w-md flex flex-row items-center mb-8">
                     <h1 className="text-2xl text-left items-center">
                         <span className="text-blue-500 font-bold">3N</span> Nursing Care Plans
                     </h1>
-                    {/* Logo */}
+             
                     <div className="ml-auto">
                         <img src={logo} alt="Logo" className="h-12 md:h-14 rounded-full shadow-sm" />
                     </div>
@@ -147,9 +146,9 @@ const LoginView = () => {
                         </div>
                         
                         <div className="text-left">
-                            <a href="#" className="text-blue-500 hover:underline text-sm">
-                                ¿Se te olvidó tu contraseña?
-                            </a>
+                            <Link to="/register" className="text-blue-500 hover:underline text-sm">
+                                ¿No tienes Cuenta? Regístrate
+                            </Link>
                         </div>
                         
                         {/* Botón de Iniciar Sesión*/}

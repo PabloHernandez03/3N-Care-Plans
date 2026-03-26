@@ -57,6 +57,82 @@ router.get("/perfil/:id", async (req, res) => {
   }
 });
 
+router.post("/registro", async (req, res) => {
+    try {
+        const { 
+            nombre, apellido_paterno, apellido_materno, cedula_profesional, curp_dni,
+            telefono, calle, ciudad, estado, 
+            grado_academico, institucion_egreso, 
+            unidad_hospitalaria, area_asignada, turno, 
+            correo_electronico, password 
+        } = req.body;
+
+        // Validar si el correo ya existe
+        const existeEnfermero = await Enfermero.findOne({ "cuenta.correo_electronico": correo_electronico });
+        if (existeEnfermero) {
+            return res.status(400).json({ error: "Este correo electrónico ya está registrado." });
+        }
+
+        // LÓGICA DE AUTO-INCREMENTO (ID Interno)
+        const ultimoEnfermero = await Enfermero.findOne().sort({ "cuenta.id_interno": -1 });
+        const nuevoIdInterno = ultimoEnfermero && ultimoEnfermero.cuenta && ultimoEnfermero.cuenta.id_interno 
+            ? ultimoEnfermero.cuenta.id_interno + 1 
+            : 1;
+
+        // Encriptar la contraseña
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(password, salt);
+
+        // Construcción del JSON final
+        const nuevoEnfermero = new Enfermero({
+            cuenta: {
+                id_interno: nuevoIdInterno,
+                correo_electronico: correo_electronico,
+                password_hash: password_hash,
+                rol: "enfermero",
+                estado_cuenta: "activo"
+            },
+            identidad: {
+                nombre: nombre,
+                apellido_paterno: apellido_paterno,
+                apellido_materno: apellido_materno,
+                cedula_profesional: cedula_profesional,
+                curp_dni: curp_dni
+            },
+            contacto: {
+                telefono: telefono
+            },
+            direccion: {
+                calle: calle,
+                ciudad: ciudad,
+                estado: estado
+            },
+            perfil_profesional: {
+                grado_academico: grado_academico,
+                especialidades: [], 
+                institucion_egreso: institucion_egreso
+            },
+            datos_laborales: {
+                unidad_hospitalaria: unidad_hospitalaria,
+                area_asignada: area_asignada,
+                turno: turno,
+                fecha_ingreso: new Date().toISOString().split('T')[0],
+                esta_activo: true 
+            },
+            metadatos: {
+                creado_el: new Date().toISOString()
+            }
+        });
+
+        await nuevoEnfermero.save();
+        res.status(201).json({ mensaje: "Nodo registrado exitosamente en la red." });
+
+    } catch (error) {
+        console.error("Error en el registro:", error);
+        res.status(500).json({ error: "Falla interna del servidor al procesar el registro." });
+    }
+});
+
 router.get("/todos", async (req, res) => {
     try {
         const todosLosEnfermeros = await Enfermero.find().select("-cuenta.password_hash");

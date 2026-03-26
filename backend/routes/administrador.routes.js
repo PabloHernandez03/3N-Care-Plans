@@ -12,7 +12,7 @@ router.post("/login", async (req, res) => {
     const admin = await Admin.findOne({ "cuenta.correo_electronico": email });
 
     if (!admin) {
-      return res.status(404).json({ error: "Administrador no encontrado" });
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
     console.log("3. Hash administrativo en DB:", admin.cuenta.password_hash);
@@ -43,7 +43,7 @@ router.get("/perfil/:id", async (req, res) => {
     const admin = await Admin.findById(req.params.id).select("-cuenta.password_hash");
     
     if (!admin) {
-      return res.status(404).json({ error: "Administrador no encontrado" });
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
     
     res.json(admin);
