@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import logo from '@/assets/logo.png';
+import { useNavigate, Link } from 'react-router-dom';
 
-export default function RegisterView() {
+const carouselData = [
+    {
+        title: 'Registro Profesional',
+        description: 'Únete a la red 3N para gestionar planes de cuidado estandarizados y mejorar la atención al paciente.'
+    },
+    {
+        title: 'MEJORA TU CONOCIMIENTO EN LAS 3N',
+        description: 'Accede a la base de datos integrada de NANDA, NIC y NOC para una práctica clínica basada en evidencia.'
+    }
+];
+
+const RegisterView = () => {
     const navigate = useNavigate();
     
-    // 1. ESTADO DEL FORMULARIO (Payload Completo)
+    // PAYLOAD COMPLETO (Sincronizado con tu JSON de la DB)
     const [formData, setFormData] = useState({
         nombre: '', apellido_paterno: '', apellido_materno: '', 
         cedula_profesional: '', curp_dni: '',
@@ -16,10 +27,18 @@ export default function RegisterView() {
         unidad_hospitalaria: '', area_asignada: '', turno: '',
         correo_electronico: '', password: ''
     });
-    
-    // 2. ESTADOS DE CONTROL (Carga y Notificación)
+
+    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: '' });
+    const [carouselIndex, setCarouselIndex] = useState(0);
+    const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '' });
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCarouselIndex(prev => (prev === carouselData.length - 1 ? 0 : prev + 1));
+        }, 5000); 
+        return () => clearInterval(interval);
+    }, []);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,170 +46,178 @@ export default function RegisterView() {
 
     const handleRegister = async (e) => {
         e.preventDefault();
+        setError('');
         setLoading(true);
 
         try {
-            // Envío del paquete al Backend
             await axios.post(`${import.meta.env.VITE_API_URL}/api/enfermero/registro`, formData);
-            
-            // Notificación de éxito
-            setNotificacion({ mostrar: true, mensaje: '¡Registro exitoso! Redirigiendo...', tipo: 'exito' });
-            
-            // Redirección tras 2 segundos
+            setNotificacion({ mostrar: true, mensaje: '¡Registro exitoso! Redirigiendo...' });
             setTimeout(() => navigate('/'), 2500);
-
         } catch (err) {
-            const msg = err.response?.data?.error || 'Error de conexión con el servidor.';
-            setNotificacion({ mostrar: true, mensaje: msg, tipo: 'error' });
-            
-            // Ocultar error automáticamente tras 5 segundos
-            setTimeout(() => setNotificacion({ ...notificacion, mostrar: false }), 5000);
+            setError(err.response?.data?.error || 'Error al registrar el usuario.');
         } finally {
-            setLoading(false);
+            setLoading(false); 
         }
     };
 
     return (
-        <div className="min-h-screen flex flex-col lg:flex-row bg-gray-100 relative">
+        <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-white to-gray-100 font-sans">
             
-            {/* --- NOTIFICACIÓN FLOTANTE (Sin librerías) --- */}
             {notificacion.mostrar && (
-                <div className={`fixed top-10 right-10 z-[100] p-5 rounded-2xl shadow-2xl flex items-center gap-4 border-l-8 transform transition-all duration-500 animate-bounce ${
-                    notificacion.tipo === 'exito' ? 'bg-green-600 border-green-400 text-white' : 'bg-red-600 border-red-400 text-white'
-                }`}>
-                    <span className="text-2xl">{notificacion.tipo === 'exito' ? '✅' : '⚠️'}</span>
-                    <div>
-                        <p className="font-black text-sm uppercase tracking-tighter">Sistema 3N</p>
-                        <p className="text-xs opacity-90">{notificacion.mensaje}</p>
-                    </div>
+                <div className="fixed top-5 right-5 z-50 p-4 bg-green-600 text-white rounded-xl shadow-2xl flex items-center gap-3 animate-bounce border-l-4 border-green-400">
+                    <span className="font-bold text-sm">✅ {notificacion.mensaje}</span>
                 </div>
             )}
 
-            {/* LADO IZQUIERDO: FORMULARIO */}
-            <div className="w-full lg:w-3/5 h-screen overflow-y-auto bg-white px-8 md:px-20 py-12 shadow-inner">
-                <div className="max-w-3xl mx-auto">
-                    <div className="flex items-center justify-between mb-10">
-                        <h1 className="text-3xl font-black tracking-tight"><span className="text-blue-600">3N</span> REGISTRO</h1>
-                        <img src={logo} alt="Logo" className="h-14 w-14 rounded-full border-2 border-blue-500 p-1 shadow-md" />
+            <div className="w-full lg:flex-[1.4] h-screen overflow-y-auto bg-gray-50 px-6 md:px-12 py-10 lg:py-12">
+                
+                <div className="w-full max-w-2xl mx-auto flex flex-row items-center mb-8">
+                    <h1 className="text-2xl text-left">
+                        <span className="text-blue-500 font-bold">3N</span> Nursing Care Plans
+                    </h1>
+                    <div className="ml-auto">
+                        <img src={logo} alt="Logo" className="h-12 md:h-14 rounded-full shadow-sm border border-gray-100" />
                     </div>
-
-                    <form onSubmit={handleRegister} className="space-y-8 pb-20">
+                </div>
+                
+                <div className="w-full max-w-2xl mx-auto">
+                    <div className="mb-8">
+                        <h2 className="text-3xl font-bold text-gray-800 mb-2">Crear Cuenta</h2>
+                        <p className="text-gray-600">Por favor, completa todos los campos del perfil</p>
                         
-                        {/* SECCIÓN 1: IDENTIDAD */}
-                        <div className="space-y-4">
-                            <h3 className="text-blue-600 font-bold text-xs uppercase tracking-[0.2em] border-b border-gray-100 pb-2">1. Identidad Personal</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-3">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Nombre(s)</label>
-                                    <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Ap. Paterno</label>
-                                    <input type="text" name="apellido_paterno" value={formData.apellido_paterno} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Ap. Materno</label>
-                                    <input type="text" name="apellido_materno" value={formData.apellido_materno} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">CURP</label>
-                                    <input type="text" name="curp_dni" value={formData.curp_dni} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase" required />
-                                </div>
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded text-sm text-left animate-pulse">
+                                <span className="font-bold">Error:</span> {error}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <form onSubmit={handleRegister} className="flex flex-col gap-6">
+                        
+                        {/* 1. IDENTIDAD */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-3"><h3 className="text-blue-500 font-bold text-xs uppercase tracking-widest border-b pb-1">1. Identidad</h3></div>
+                            <div className="md:col-span-1">
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Nombre(s)</label>
+                                <input name="nombre" value={formData.nombre} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Ap. Paterno</label>
+                                <input name="apellido_paterno" value={formData.apellido_paterno} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Ap. Materno</label>
+                                <input name="apellido_materno" value={formData.apellido_materno} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Cédula Profesional</label>
+                                <input name="cedula_profesional" value={formData.cedula_profesional} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">CURP</label>
+                                <input name="curp_dni" value={formData.curp_dni} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none uppercase" required />
                             </div>
                         </div>
 
-                        {/* SECCIÓN 2: PROFESIONAL */}
-                        <div className="space-y-4">
-                            <h3 className="text-blue-600 font-bold text-xs uppercase tracking-[0.2em] border-b border-gray-100 pb-2">2. Perfil y Trabajo</h3>
+                        {/* 2. CONTACTO Y DIRECCIÓN */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><h3 className="text-blue-500 font-bold text-xs uppercase tracking-widest border-b pb-1">2. Ubicación y Contacto</h3></div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Teléfono</label>
+                                <input name="telefono" value={formData.telefono} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Ciudad</label>
+                                <input name="ciudad" value={formData.ciudad} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Estado</label>
+                                <input name="estado" value={formData.estado} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Calle y Número</label>
+                                <input name="calle" value={formData.calle} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                        </div>
+
+                        {/* 3. PROFESIONAL Y LABORAL */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <h3 className="text-blue-500 font-bold text-xs uppercase tracking-widest border-b pb-1">
+                                    3. Datos Laborales y Académicos
+                                </h3>
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Unidad Hospitalaria</label>
+                                <input name="unidad_hospitalaria" value={formData.unidad_hospitalaria} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" placeholder="Ej: Hospital Civil" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Área Asignada</label>
+                                <input name="area_asignada" value={formData.area_asignada} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" placeholder="Ej: Urgencias" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Grado Académico</label>
+                                <input name="grado_academico" value={formData.grado_academico} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required />
+                            </div>
+                            {/* CAMPO AGREGADO AQUÍ */}
+                            <div>
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Institución de Egreso</label>
+                                <input name="institucion_egreso" value={formData.institucion_egreso} onChange={handleChange} type="text" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" placeholder="Ej: Universidad de Guadalajara" required />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Turno</label>
+                                <select name="turno" value={formData.turno} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-white shadow-sm outline-none" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Matutino">Matutino</option>
+                                    <option value="Vespertino">Vespertino</option>
+                                    <option value="Nocturno">Nocturno</option>
+                                    <option value="Jornada Acumulada">Jornada Acumulada</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* 4. CUENTA */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 space-y-4">
+                            <h3 className="text-blue-500 font-bold text-sm uppercase tracking-widest">4. Credenciales</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Cédula Profesional</label>
-                                    <input type="text" name="cedula_profesional" value={formData.cedula_profesional} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
+                                    <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Email</label>
+                                    <input name="correo_electronico" value={formData.correo_electronico} onChange={handleChange} type="email" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-gray-50 outline-none" required />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Unidad Hospitalaria</label>
-                                    <input type="text" name="unidad_hospitalaria" value={formData.unidad_hospitalaria} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Área Asignada</label>
-                                    <input 
-                                        type="text" 
-                                        name="area_asignada" 
-                                        placeholder="UCI, Urgencias..." 
-                                        value={formData.area_asignada} 
-                                        onChange={handleChange} 
-                                        className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
-                                        required 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Turno</label>
-                                    <select name="turno" value={formData.turno} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required>
-                                        <option value="">Seleccionar...</option>
-                                        <option value="Matutino">Matutino</option>
-                                        <option value="Vespertino">Vespertino</option>
-                                        <option value="Nocturno">Nocturno</option>
-                                    </select>
+                                    <label className="block text-gray-700 font-semibold mb-1 text-xs uppercase">Contraseña</label>
+                                    <input name="password" value={formData.password} onChange={handleChange} type="password" className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 bg-gray-50 outline-none" required />
                                 </div>
                             </div>
                         </div>
 
-                        {/* SECCIÓN 3: UBICACIÓN */}
-                        <div className="space-y-4">
-                            <h3 className="text-blue-600 font-bold text-xs uppercase tracking-[0.2em] border-b border-gray-100 pb-2">3. Contacto</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Teléfono</label>
-                                    <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Ciudad</label>
-                                    <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Calle y Número</label>
-                                    <input type="text" name="calle" value={formData.calle} onChange={handleChange} className="w-full p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* SECCIÓN 4: CREDENCIALES */}
-                        <div className="p-8 bg-black rounded-[2rem] space-y-5">
-                            <h3 className="text-blue-400 font-bold text-xs uppercase tracking-[0.2em] border-b border-white/10 pb-2">4. Acceso al Sistema</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase">Email Institucional</label>
-                                    <input type="email" name="correo_electronico" value={formData.correo_electronico} onChange={handleChange} className="w-full p-3 bg-white/5 text-white border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase">Password</label>
-                                    <input type="password" name="password" value={formData.password} onChange={handleChange} className="w-full p-3 bg-white/5 text-white border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="pt-10 flex flex-col md:flex-row gap-5">
-                            <button type="submit" disabled={loading} className="flex-1 py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:bg-gray-300">
-                                {loading ? 'PROCESANDO...' : 'CONFIRMAR REGISTRO'}
+                        <div className="flex flex-col items-center gap-4 mt-4 pb-12">
+                            <button type="submit" disabled={loading} className={`px-12 py-3 font-bold rounded-lg transition-all shadow-md ${loading ? 'bg-gray-400' : 'bg-black text-white hover:bg-gray-800'}`}>
+                                {loading ? 'Registrando...' : 'Registrar Cuenta'}
                             </button>
-                            <Link to="/" className="flex-1 py-5 border-2 border-gray-100 text-center text-gray-400 font-bold rounded-2xl hover:bg-gray-50 transition-all">
-                                CANCELAR
-                            </Link>
+                            <Link to="/" className="text-gray-400 hover:text-blue-500 text-sm font-semibold transition-colors">← Volver al Login</Link>
                         </div>
                     </form>
                 </div>
             </div>
             
-            {/* LADO DERECHO: IMAGEN */}
-            <div className="hidden lg:block lg:w-2/5 relative">
-                <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80" alt="Nurse" className="absolute inset-0 object-cover h-full w-full" />
-                <div className="absolute inset-0 bg-blue-900/40 backdrop-blur-sm flex items-end p-16">
-                    <div className="text-white space-y-4">
-                        <p className="text-xs font-bold uppercase tracking-widest text-blue-300">Guadalajara, Jalisco</p>
-                        <h2 className="text-6xl font-black leading-[0.9]">Cuidado<br/>Digital.</h2>
+            {/* PANEL DERECHO: CARRUSEL */}
+            <div className="hidden lg:flex lg:flex-[1.6] relative items-center justify-center bg-white bg-opacity-30">
+                <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80" alt="Nursing" className="object-cover h-full w-full" />
+                <div className="absolute inset-0 flex items-center justify-center bg-blue-900/30 backdrop-blur-[1px]">
+                    <div className="bg-gray-100/90 backdrop-blur-sm rounded-2xl p-10 max-w-lg w-full mx-6 text-center shadow-xl border border-gray-200">
+                        <h3 className="text-3xl font-black text-blue-600 mb-3 uppercase tracking-tighter">{carouselData[carouselIndex].title}</h3>
+                        <p className="text-gray-800 mb-6 text-lg leading-relaxed">{carouselData[carouselIndex].description}</p>
+                        <div className="flex justify-center gap-3">
+                            {carouselData.map((_, idx) => (
+                                <span key={idx} className={`inline-block w-3 h-3 rounded-full transition-all ${idx === carouselIndex ? 'bg-blue-600 w-8' : 'bg-blue-200'}`} />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     );
-}
+};
+
+export default RegisterView;
