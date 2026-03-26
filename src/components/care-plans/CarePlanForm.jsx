@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faPills, faHospital, faLeaf, faClipboard, faCalendar, faHistory } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faUser, faPills, faHospital, faLeaf, faClipboard, 
+    faCalendar, faMagnifyingGlass, faChevronDown 
+} from '@fortawesome/free-solid-svg-icons';
 
 /* ─── Utilidades ─────────────────────────────────────────────────────────── */
 const calcularEdad = (fechaStr) => {
@@ -88,6 +91,13 @@ const RadioItem = ({ name, value, label, className = "" }) => (
 /* ─── Componente principal ───────────────────────────────────────────────── */
 const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
     const [patientList, setPatientList]         = useState([]);
+    const [patientsWithActivePlans, setPatientsWithActivePlans] = useState(new Set()); // 🟢 NUEVO: Set de IDs con planes activos
+    
+    // 🟢 NUEVOS ESTADOS PARA EL DROPDOWN PERSONALIZADO
+    const [isDropdownOpen, setIsDropdownOpen]   = useState(false);
+    const [patientSearchTerm, setPatientSearchTerm] = useState("");
+    const dropdownRef = useRef(null);
+
     const [selectedOption, setSelectedOption]   = useState("");
     const [selectedSex, setSelectedSex]         = useState("");
     const [selectedBloodType, setSelectedBloodType] = useState("");
@@ -112,11 +122,52 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         setMedicamentos(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
     };
 
+    // 🟢 ACTUALIZADO: Obtenemos Pacientes y Planes para cruzar los datos
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL}/api/patients`)
-            .then(r => r.json())
-            .then(setPatientList)
-            .catch(err => console.error("Error al cargar pacientes:", err));
+        const fetchData = async () => {
+            try {
+                const [patRes, planRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/api/patients`),
+                    fetch(`${import.meta.env.VITE_API_URL}/api/careplans`)
+                ]);
+                
+                if (patRes.ok) {
+                    const patData = await patRes.json();
+                    // Ordenar alfabéticamente
+                    const sorted = patData.sort((a, b) => {
+                        const nameA = `${a.nombre?.apellidoPaterno || ''} ${a.nombre?.apellidoMaterno || ''} ${a.nombre?.nombre || ''}`.trim();
+                        const nameB = `${b.nombre?.apellidoPaterno || ''} ${b.nombre?.apellidoMaterno || ''} ${b.nombre?.nombre || ''}`.trim();
+                        return nameA.localeCompare(nameB, 'es');
+                    });
+                    setPatientList(sorted);
+                }
+
+                if (planRes.ok) {
+                    const planData = await planRes.json();
+                    // Extraer IDs de pacientes con planes "Activos"
+                    const activeIds = new Set(
+                        planData
+                            .filter(p => p.estado === 'Activo' && p.pacienteId)
+                            .map(p => typeof p.pacienteId === 'object' ? p.pacienteId._id : p.pacienteId)
+                    );
+                    setPatientsWithActivePlans(activeIds);
+                }
+            } catch (err) {
+                console.error("Error al cargar datos:", err);
+            }
+        };
+        fetchData();
+    }, []);
+
+    // 🟢 NUEVO: Cerrar dropdown al hacer clic afuera
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     const handleKeyDown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
@@ -168,7 +219,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         };
 
         if (selectedOption === "") {
-            // 🟢 NUEVO PACIENTE: Aprovechamos la transacción atómica del backend
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
             if (curpExists) { 
                 showToast("Ya existe un registro con esta CURP.", "error"); 
@@ -176,7 +226,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             }
             
             try {
-                // Unimos todo en un solo envío
                 const payloadCompleto = {
                     ...patientPayload,
                     ingreso: ingresoPayload
@@ -189,10 +238,8 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 
                 if (res.ok) { 
                     const savedData = await res.json();
-                    
-                    // El backend devuelve { patient: {...}, admission: {...} }
                     const pacienteReal = savedData.patient;
-                    pacienteReal.ingresoId = savedData.admission?._id; // Le inyectamos el ingreso recién creado
+                    pacienteReal.ingresoId = savedData.admission?._id; 
                     
                     showToast("Paciente e ingreso creados correctamente", "success");
                     onPatientSaved(pacienteReal); 
@@ -204,7 +251,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 showToast("No se pudo conectar con el servidor.", "error"); 
             }
         } else {
-            // 🟢 PACIENTE EXISTENTE: Lo actualizamos
             try {
                 await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -260,9 +306,12 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
     };
 
-    const handlePatientSelect = (e) => {
-        const id = e.target.value;
+    // 🟢 ACTUALIZADO: Recibe directamente el ID desde el Dropdown
+    const handlePatientSelect = (id) => {
         setSelectedOption(id);
+        setIsDropdownOpen(false);
+        setPatientSearchTerm(""); // Limpiamos el buscador al elegir
+
         if (id === "") { resetForm(); return; }
 
         const paciente = patientList.find(p => p._id === id);
@@ -360,6 +409,22 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             .catch(err => console.error("Error cargando expediente:", err));
     };
 
+    // 🟢 NUEVO: Lógica de filtrado del buscador de pacientes
+    const filteredPatients = patientList.filter(p => {
+        if (!patientSearchTerm) return true;
+        const term = patientSearchTerm.toLowerCase();
+        const fullName = `${p.nombre?.apellidoPaterno || ''} ${p.nombre?.apellidoMaterno || ''} ${p.nombre?.nombre || ''}`.toLowerCase();
+        const curp = (p.curp || '').toLowerCase();
+        return fullName.includes(term) || curp.includes(term);
+    });
+
+    const getSelectedPatientText = () => {
+        if (selectedOption === "") return "— Registrar nuevo paciente —";
+        const p = patientList.find(pat => pat._id === selectedOption);
+        if (!p) return "— Registrar nuevo paciente —";
+        return `${p.nombre?.apellidoPaterno} ${p.nombre?.apellidoMaterno}, ${p.nombre?.nombre} — ${p.curp}`;
+    };
+
     return (
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}
               className="space-y-6 font-sans">
@@ -382,16 +447,68 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
 
                 <Card className="col-span-full">
                     <FieldLabel>Seleccionar paciente existente</FieldLabel>
-                    <div className="relative">
-                        <select value={selectedOption} onChange={handlePatientSelect} className={selectCls}>
-                            <option value="">— Registrar nuevo paciente —</option>
-                            {patientList.map((p) => (
-                                <option key={p._id} value={p._id}>
-                                    {p.nombre?.apellidoPaterno} {p.nombre?.apellidoMaterno}, {p.nombre?.nombre} — {p.curp}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</div>
+                    {/* 🟢 NUEVO DROPDOWN PERSONALIZADO CON BUSCADOR */}
+                    <div className="relative" ref={dropdownRef}>
+                        <div 
+                            className={`${inputCls} flex items-center justify-between cursor-pointer`}
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        >
+                            <span className={selectedOption === "" ? "text-gray-500 font-medium" : "text-[#0f3460] font-bold truncate"}>
+                                {getSelectedPatientText()}
+                            </span>
+                            <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 text-xs transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {isDropdownOpen && (
+                            <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden flex flex-col">
+                                <div className="p-3 border-b border-gray-100 bg-gray-50/80">
+                                    <div className="relative">
+                                        <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                                        <input 
+                                            type="text" 
+                                            autoFocus
+                                            placeholder="Buscar por nombre, apellido o CURP..." 
+                                            className="w-full pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/20"
+                                            value={patientSearchTerm}
+                                            onChange={(e) => setPatientSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="max-h-64 overflow-y-auto">
+                                    <div 
+                                        className={`px-4 py-3 text-sm cursor-pointer hover:bg-gray-50 transition-colors ${selectedOption === "" ? 'bg-[#16a09e]/10 text-[#16a09e] font-bold' : 'text-gray-600 font-medium'}`}
+                                        onClick={() => handlePatientSelect("")}
+                                    >
+                                        — Registrar nuevo paciente —
+                                    </div>
+                                    {filteredPatients.map(p => {
+                                        const hasActivePlan = patientsWithActivePlans.has(p._id);
+                                        return (
+                                            <div 
+                                                key={p._id}
+                                                className={`px-4 py-3 text-sm cursor-pointer hover:bg-gray-50 transition-colors border-t border-gray-50 flex items-center justify-between ${selectedOption === p._id ? 'bg-[#16a09e]/5 text-[#0f3460] font-bold' : 'text-gray-700'}`}
+                                                onClick={() => handlePatientSelect(p._id)}
+                                            >
+                                                <div className="truncate pr-4">
+                                                    <span className="block font-semibold truncate">{p.nombre?.apellidoPaterno} {p.nombre?.apellidoMaterno}, {p.nombre?.nombre}</span>
+                                                    <span className="text-[11px] text-gray-400 font-mono tracking-wider">{p.curp}</span>
+                                                </div>
+                                                {hasActivePlan && (
+                                                    <span className="shrink-0 inline-block px-2.5 py-1 bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-wider rounded-md shadow-sm">
+                                                        Plan Activo
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {filteredPatients.length === 0 && (
+                                        <div className="px-4 py-8 text-center text-sm text-gray-400 font-medium">
+                                            No se encontraron pacientes para "{patientSearchTerm}"
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </Card>
 
