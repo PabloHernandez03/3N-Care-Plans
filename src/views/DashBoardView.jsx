@@ -124,6 +124,7 @@ export default function DashboardView() {
     const [carePlans, setCarePlans] = useState([]);
     const [loading,   setLoading]   = useState(true);
     const [tendencia, setTendencia] = useState('mes');
+    const [admissions, setAdmissions] = useState([]);
 
     useEffect(() => {
         const api = import.meta.env.VITE_API_URL;
@@ -131,10 +132,12 @@ export default function DashboardView() {
             axios.get(`${api}/api/patients`).catch(() => ({ data: [] })),
             axios.get(`${api}/api/patients/with-admission`).catch(() => ({ data: [] })),
             axios.get(`${api}/api/careplans`).catch(() => ({ data: [] })),
-        ]).then(([pRes, aRes, cRes]) => {
+            axios.get(`${api}/api/admissions/tendencia`).catch(() => ({ data: [] })), // ← nuevo
+        ]).then(([pRes, aRes, cRes, admRes]) => {
             setPatients(pRes.data  || []);
             setWithAdm(aRes.data   || []);
             setCarePlans(cRes.data || []);
+            setAdmissions(admRes.data || []); // ← nuevo
         }).finally(() => setLoading(false));
     }, []);
 
@@ -197,7 +200,7 @@ export default function DashboardView() {
             Otro:      edadSexoMap[r].N,
         }));
 
-        /* ── Tendencia de registros ── */
+        /* ── Tendencia de ingresos + regresión lineal ── */
         const ahora  = new Date();
         const keyFn  = {
             dia:    (d) => d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }),
@@ -206,9 +209,13 @@ export default function DashboardView() {
                 const week = Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
                 return `Sem ${week}`;
             },
-            mes:    (d) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' }),
+            mes: (d) => d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' }),
         };
-        const nSlots = { dia: 14, semana: 8, mes: 6 }[tendencia];
+
+        const nSlots   = { dia: 14, semana: 8, mes: 6 }[tendencia];
+        const nPredict = { dia: 3,  semana: 2, mes: 2  }[tendencia]; // slots a predecir
+
+        // Generar slots históricos vacíos
         const tendMap = {};
         for (let i = nSlots - 1; i >= 0; i--) {
             const d = new Date(ahora);
@@ -217,13 +224,53 @@ export default function DashboardView() {
             if (tendencia === 'mes')    d.setMonth(d.getMonth() - i);
             tendMap[keyFn[tendencia](d)] = 0;
         }
-        patients.forEach(p => {
-            if (!p.fechaRegistro && !p.createdAt) return;
-            const d   = new Date(p.fechaRegistro || p.createdAt);
+
+        // Contar ingresos reales por slot
+        admissions.forEach(a => {
+            if (!a.fecha) return;
+            const d   = new Date(a.fecha);
             const key = keyFn[tendencia](d);
             if (key in tendMap) tendMap[key]++;
         });
-        const tendenciaData = Object.entries(tendMap).map(([name, value]) => ({ name, value }));
+
+        const historico = Object.entries(tendMap).map(([name, ingresos], idx) => ({
+            name, ingresos, idx,
+            prediccion: null,
+        }));
+
+        // ── Regresión lineal simple (mínimos cuadrados) ──
+        const n  = historico.length;
+        const xs = historico.map(d => d.idx);
+        const ys = historico.map(d => d.ingresos);
+        const sumX  = xs.reduce((a, b) => a + b, 0);
+        const sumY  = ys.reduce((a, b) => a + b, 0);
+        const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0);
+        const sumX2 = xs.reduce((s, x) => s + x * x, 0);
+        const denom = n * sumX2 - sumX * sumX;
+        const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+        const inter = (sumY - slope * sumX) / n;
+
+        // Slots futuros
+        const futuros = [];
+        for (let i = 1; i <= nPredict; i++) {
+            const d = new Date(ahora);
+            if (tendencia === 'dia')    d.setDate(d.getDate() + i);
+            if (tendencia === 'semana') d.setDate(d.getDate() + i * 7);
+            if (tendencia === 'mes')    d.setMonth(d.getMonth() + i);
+            const xFuturo    = n - 1 + i;
+            const prediccion = Math.max(0, Math.round(slope * xFuturo + inter));
+            futuros.push({ name: keyFn[tendencia](d), ingresos: null, prediccion, idx: xFuturo });
+        }
+
+        // Conectar último punto histórico con la predicción
+        const ultimoHistorico = historico[historico.length - 1];
+        const prediccionConexion = Math.max(0, Math.round(slope * (n - 1) + inter));
+        const tendenciaData = [
+            ...historico,
+            { ...ultimoHistorico, ingresos: null, prediccion: prediccionConexion }, // punto de empalme
+            ...futuros,
+        ];
+
 
         /* ── Recientes ── */
         const recientes = [...patients]
@@ -231,7 +278,7 @@ export default function DashboardView() {
             .slice(0, 5);
 
         return { total, activos, planes, sexoData, sangreData, edadData, edadSexoData, tendenciaData, recientes };
-    }, [patients, withAdm, carePlans, tendencia]);
+    }, [patients, withAdm, carePlans, admissions, tendencia]);
 
     if (loading) return (
         <div className="flex items-center justify-center h-64 text-gray-400">
@@ -263,7 +310,7 @@ export default function DashboardView() {
 
                 {/* Tendencia */}
                 <Card className="p-5">
-                    <SectionHeader icon={faArrowTrendUp} title="Tendencia de registros">
+                    <SectionHeader icon={faArrowTrendUp} title="Tendencia de ingresos">
                         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
                             {[['dia','Día'],['semana','Semana'],['mes','Mes']].map(([key, label]) => (
                                 <button key={key} onClick={() => setTendencia(key)}
@@ -276,23 +323,57 @@ export default function DashboardView() {
                             ))}
                         </div>
                     </SectionHeader>
+
                     <ResponsiveContainer width="100%" height={180}>
                         <AreaChart data={stats.tendenciaData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%"  stopColor={AREA_COLOR} stopOpacity={0.15} />
-                                    <stop offset="95%" stopColor={AREA_COLOR} stopOpacity={0}    />
+                                    <stop offset="95%" stopColor={AREA_COLOR} stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="predGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%"  stopColor="#16a09e" stopOpacity={0.12} />
+                                    <stop offset="95%" stopColor="#16a09e" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                            <Tooltip content={<CustomTooltip suffix=" pacientes" />} />
-                            <Area type="monotone" dataKey="value" name="Registros"
-                                  stroke={AREA_COLOR} strokeWidth={2}
-                                  fill="url(#areaGrad)" dot={{ r: 3, fill: AREA_COLOR }} />
+                            <Tooltip content={({ active, payload, label }) => {
+                                if (!active || !payload?.length) return null;
+                                const ing  = payload.find(p => p.dataKey === 'ingresos'   && p.value != null);
+                                const pred = payload.find(p => p.dataKey === 'prediccion' && p.value != null);
+                                return (
+                                    <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs">
+                                        <p className="font-semibold text-gray-700 mb-1">{label}</p>
+                                        {ing  && <p style={{ color: AREA_COLOR }}>Ingresos: <span className="font-bold">{ing.value}</span></p>}
+                                        {pred && <p style={{ color: '#16a09e' }}>Predicción: <span className="font-bold">{pred.value}</span></p>}
+                                    </div>
+                                );
+                            }} />
+                            <Area type="monotone" dataKey="ingresos"   name="Ingresos"
+                                stroke={AREA_COLOR} strokeWidth={2}
+                                fill="url(#areaGrad)"
+                                dot={{ r: 3, fill: AREA_COLOR }}
+                                connectNulls={false} />
+                            <Area type="monotone" dataKey="prediccion" name="Predicción"
+                                stroke="#16a09e" strokeWidth={2} strokeDasharray="5 4"
+                                fill="url(#predGrad)"
+                                dot={{ r: 3, fill: '#16a09e', strokeWidth: 0 }}
+                                connectNulls={true} />
                         </AreaChart>
                     </ResponsiveContainer>
+
+                    <div className="flex items-center gap-4 mt-2">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span className="w-6 h-0.5 bg-[#0f3460] inline-block rounded" />
+                            Ingresos reales
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span className="w-6 border-t-2 border-dashed border-[#16a09e] inline-block" />
+                            Predicción
+                        </div>
+                    </div>
                 </Card>
 
                 {/* Distribución por edad */}
