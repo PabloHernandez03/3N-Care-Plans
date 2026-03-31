@@ -7,6 +7,40 @@ import CarePlan from "../models/CarePlan.js";
 
 const router = express.Router();
 
+// En patient.routes.js
+router.get('/stats/expedientes', async (req, res) => {
+    try {
+        const records = await ClinicalRecord.find({});
+
+        // Antecedentes
+        const anteMap = {};
+        records.forEach(r => {
+            (r.antecedentes?.patologicos || []).forEach(a => {
+                if (!a.startsWith('Otro:')) anteMap[a] = (anteMap[a] || 0) + 1;
+            });
+        });
+        const antecedentes = Object.entries(anteMap)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 8);
+
+        // Hábitos
+        const tabMap  = { No: 0, Exfumador: 0, Sí: 0 };
+        const alcMap  = { No: 0, Social: 0, Habitual: 0 };
+        const dietMap = { Balanceada: 0, Deficiente: 0, Hipergrasas: 0 };
+        records.forEach(r => {
+            const h = r.habitos || {};
+            if (h.tabaquismo  in tabMap)  tabMap[h.tabaquismo]++;
+            if (h.alcoholismo in alcMap)  alcMap[h.alcoholismo]++;
+            if (h.alimentacion in dietMap) dietMap[h.alimentacion]++;
+        });
+
+        res.json({ antecedentes, habitos: { tabaquismo: tabMap, alcoholismo: alcMap, alimentacion: dietMap } });
+    } catch (error) {
+        res.status(500).json({ error: 'Error obteniendo estadísticas de expedientes' });
+    }
+});
+
 // ── GET / — Todos los pacientes ────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
