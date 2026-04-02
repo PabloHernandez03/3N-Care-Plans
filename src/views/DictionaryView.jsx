@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faMagnifyingGlass, faLayerGroup, faFolderOpen, 
-    faBookMedical, faArrowLeft, faStethoscope, faNotesMedical, faTimes, faListCheck, faRulerHorizontal
+    faBookMedical, faArrowLeft, faStethoscope, faNotesMedical, faTimes, faListCheck, faRulerHorizontal,
+    faHeart, faAppleAlt, faToilet, faWalking, faBrain, faUserFriends, faCogs, faProcedures, faSeedling,
+    faShieldAlt, faBiohazard
 } from '@fortawesome/free-solid-svg-icons';
 
 const getTexto = (campo) => {
@@ -24,6 +26,12 @@ export default function DictionaryView() {
     const [selectedDominio, setSelectedDominio] = useState(null);
     const [selectedClase, setSelectedClase] = useState(null);
     const [selectedItemDetail, setSelectedItemDetail] = useState(null);
+
+    const domainIconMap = {
+        1: faHeart, 2: faAppleAlt, 3: faToilet, 4: faWalking, 5: faBrain, 
+        6: faUserFriends, 7: faCogs, 8: faProcedures, 9: faSeedling, 
+        10: faShieldAlt, 11: faBiohazard, 12: faProcedures, 13: faSeedling    
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -51,39 +59,85 @@ export default function DictionaryView() {
     }, [activeTab]);
 
     const dominios = useMemo(() => {
-        const uniqueDominios = [...new Set(data.map(item => getTexto(item.dominio)).filter(Boolean))];
-        return uniqueDominios.sort();
-    }, [data]);
+        if (activeTab !== 'NANDA') {
+            // Para NOC y NIC mantener comportamiento original
+            const unique = [...new Set(data.map(item => getTexto(item.dominio)).filter(Boolean))];
+            return unique.sort();
+        }
+        // Para NANDA: agrupar por codigo de dominio igual que CarePlanBuilder
+        const map = {};
+        data.forEach(item => {
+            if (!item.dominio?.codigo) return;
+            const codigo = item.dominio.codigo;
+            if (!map[codigo]) {
+                map[codigo] = {
+                    codigo,
+                    nombre: item.dominio.nombre || codigo,
+                    icon: domainIconMap[parseInt(codigo)] || faBookMedical, // ← nuevo
+                    total: 0,
+                };
+            }
+            map[codigo].total++;
+        });
+        // Ordenar por código numérico
+        return Object.values(map).sort((a, b) => {
+            const numA = parseInt(a.codigo);
+            const numB = parseInt(b.codigo);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.codigo.localeCompare(b.codigo);
+        });
+    }, [data, activeTab]);
 
     const clasesDelDominio = useMemo(() => {
         if (!selectedDominio) return [];
-        const itemsEnDominio = data.filter(item => getTexto(item.dominio) === selectedDominio);
-        const todasLasClases = itemsEnDominio.flatMap(item => {
-            if (Array.isArray(item.clase)) return item.clase.map(getTexto);
-            return [getTexto(item.clase)];
+
+        if (activeTab !== 'NANDA') {
+            const itemsEnDominio = data.filter(item => getTexto(item.dominio) === selectedDominio);
+            const todasLasClases = itemsEnDominio.flatMap(item =>
+                Array.isArray(item.clase) ? item.clase.map(getTexto) : [getTexto(item.clase)]
+            );
+            return [...new Set(todasLasClases.filter(Boolean))].sort();
+        }
+
+        // NANDA: selectedDominio es el objeto { codigo, nombre, total }
+        const itemsEnDominio = data.filter(item => item.dominio?.codigo === selectedDominio.codigo);
+        const clasesMap = {};
+        itemsEnDominio.forEach(item => {
+            const claseNombre = item.clase?.nombre || 'Sin Clase Definida';
+            if (!clasesMap[claseNombre]) clasesMap[claseNombre] = 0;
+            clasesMap[claseNombre]++;
         });
-        return [...new Set(todasLasClases.filter(Boolean))].sort();
-    }, [data, selectedDominio]);
+        return Object.entries(clasesMap)
+            .map(([nombre, total]) => ({ nombre, total }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }, [data, selectedDominio, activeTab]);
 
     const itemsAMostrar = useMemo(() => {
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
-            return data.filter(item => 
-                getTexto(item.nombre).toLowerCase().includes(term) || 
+            return data.filter(item =>
+                getTexto(item.nombre).toLowerCase().includes(term) ||
                 getTexto(item.codigo).toLowerCase().includes(term)
             );
         }
-        if (selectedClase) {
+        if (!selectedDominio || !selectedClase) return [];
+
+        if (activeTab !== 'NANDA') {
             return data.filter(item => {
                 const domCoincide = getTexto(item.dominio) === selectedDominio;
-                const claseCoincide = Array.isArray(item.clase) 
-                    ? item.clase.map(getTexto).includes(selectedClase) 
+                const claseCoincide = Array.isArray(item.clase)
+                    ? item.clase.map(getTexto).includes(selectedClase)
                     : getTexto(item.clase) === selectedClase;
                 return domCoincide && claseCoincide;
             });
         }
-        return [];
-    }, [data, searchTerm, selectedDominio, selectedClase]);
+
+        // NANDA
+        return data.filter(item =>
+            item.dominio?.codigo === selectedDominio.codigo &&
+            (item.clase?.nombre || 'Sin Clase Definida') === selectedClase.nombre
+        );
+    }, [data, searchTerm, selectedDominio, selectedClase, activeTab]);
 
     if (error) {
         return (
@@ -164,41 +218,76 @@ export default function DictionaryView() {
                 ) : (
                     <div className="animate-fade-in">
                         {(selectedDominio || selectedClase) && (
-                            <div className="flex items-center gap-3 mb-6 px-2">
-                                <button onClick={() => selectedClase ? setSelectedClase(null) : setSelectedDominio(null)} className="w-8 h-8 rounded-full bg-white text-gray-600 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                                    <FontAwesomeIcon icon={faArrowLeft} />
-                                </button>
-                                <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                                    <span onClick={() => { setSelectedDominio(null); setSelectedClase(null); }} className="cursor-pointer hover:text-blue-600 transition-colors">Dominios</span>
-                                    {selectedDominio && <><span className="text-gray-300">/</span><span onClick={() => setSelectedClase(null)} className={`cursor-pointer transition-colors ${!selectedClase ? 'font-bold text-gray-800' : 'hover:text-blue-600'}`}>{selectedDominio}</span></>}
-                                    {selectedClase && <><span className="text-gray-300">/</span><span className="font-bold text-gray-800">{selectedClase}</span></>}
-                                </div>
+                            <div className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                                <span onClick={() => { setSelectedDominio(null); setSelectedClase(null); }}
+                                    className="cursor-pointer hover:text-blue-600 transition-colors">
+                                    Dominios
+                                </span>
+                                {selectedDominio && (
+                                    <>
+                                        <span className="text-gray-300">/</span>
+                                        <span onClick={() => setSelectedClase(null)}
+                                            className={`cursor-pointer transition-colors ${!selectedClase ? 'font-bold text-gray-800' : 'hover:text-blue-600'}`}>
+                                            {activeTab === 'NANDA' ? selectedDominio.nombre : selectedDominio}
+                                        </span>
+                                    </>
+                                )}
+                                {selectedClase && (
+                                    <>
+                                        <span className="text-gray-300">/</span>
+                                        <span className="font-bold text-gray-800">
+                                            {activeTab === 'NANDA' ? selectedClase.nombre : selectedClase}
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         )}
 
+                        {/* Dominios */}
                         {!selectedDominio && (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {dominios.map((dominio, idx) => (
-                                    <div key={idx} onClick={() => setSelectedDominio(dominio)} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:-translate-y-1 hover:border-blue-200 transition-all group flex flex-col items-center text-center">
-                                        <div className="w-14 h-14 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-xl mb-3 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                            <FontAwesomeIcon icon={faLayerGroup} />
+                                {dominios.map((dominio, idx) => {
+                                    const label  = activeTab === 'NANDA' ? dominio.nombre  : dominio;
+                                    const codigo = activeTab === 'NANDA' ? dominio.codigo  : null;
+                                    const total  = activeTab === 'NANDA' ? dominio.total   : null;
+                                    return (
+                                        <div key={idx} onClick={() => setSelectedDominio(dominio)}
+                                            className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:-translate-y-1 hover:border-blue-200 transition-all group flex flex-col items-center text-center">
+                                            <div className="w-14 h-14 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-xl mb-3 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                <FontAwesomeIcon icon={activeTab === 'NANDA' ? dominio.icon : faLayerGroup} />
+                                            </div>
+                                            {codigo && (
+                                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">
+                                                    Dominio {codigo}
+                                                </span>
+                                            )}
+                                            <h3 className="text-sm font-bold text-gray-800 group-hover:text-blue-700 transition-colors">{label}</h3>
+                                            {total && <p className="text-xs text-gray-400 mt-1">{total} diagnósticos</p>}
                                         </div>
-                                        <h3 className="text-sm font-bold text-gray-800 group-hover:text-blue-700 transition-colors">{dominio || 'General'}</h3>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
+                        {/* Clases */}
                         {selectedDominio && !selectedClase && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {clasesDelDominio.map((clase, idx) => (
-                                    <div key={idx} onClick={() => setSelectedClase(clase)} className="bg-gradient-to-br from-white to-gray-50 p-5 rounded-2xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-green-300 transition-all group flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
-                                            <FontAwesomeIcon icon={faFolderOpen} />
+                                {clasesDelDominio.map((clase, idx) => {
+                                    const label = activeTab === 'NANDA' ? clase.nombre : clase;
+                                    const total = activeTab === 'NANDA' ? clase.total  : null;
+                                    return (
+                                        <div key={idx} onClick={() => setSelectedClase(clase)}
+                                            className="bg-gradient-to-br from-white to-gray-50 p-5 rounded-2xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-green-300 transition-all group flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
+                                                <FontAwesomeIcon icon={faFolderOpen} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-700 group-hover:text-green-800">{label}</h3>
+                                                {total && <p className="text-xs text-gray-400 mt-0.5">{total} diagnósticos</p>}
+                                            </div>
                                         </div>
-                                        <h3 className="text-sm font-bold text-gray-700 group-hover:text-green-800">{clase || 'Sin Clase Especificada'}</h3>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 

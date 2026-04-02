@@ -14,19 +14,59 @@ router.get("/", async (req, res) => {
 
 router.get("/search/:query", async (req, res) => {
   try {
-    const palabra = req.params.query;
+    const palabra = req.params.query.trim();
+    if (!palabra) return res.json([]);
 
-    const resultados = await Nanda.find(
-      { $text: { $search: palabra } },
-      { score: { $meta: "textScore" } } 
-    )
-    .sort({ score: { $meta: "textScore" } }) 
-    .select("codigo nombre dominio clase definicion"); 
+    // Normalizar: quitar acentos y pasar a minúsculas
+    const normalizar = (str) =>
+      str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    // Construir regex que acepta vocales con o sin acento
+    const toFlexibleRegex = (token) => {
+      const norm = normalizar(token);
+      // Reemplazar cada vocal por un grupo que acepta con/sin acento
+      const patron = norm
+        .replace(/a/g, '[aá]')
+        .replace(/e/g, '[eé]')
+        .replace(/i/g, '[ií]')
+        .replace(/o/g, '[oó]')
+        .replace(/u/g, '[uú]')
+        .replace(/n/g, '[nñ]');
+      return new RegExp(patron, 'i');
+    };
+
+    const tokens = palabra.split(/\s+/).filter(Boolean);
+
+    // Si es solo números, buscar por código
+    const esCodigo = /^\d+$/.test(palabra.trim());
+    if (esCodigo) {
+      const resultados = await Nanda.find({ codigo: { $regex: palabra, $options: 'i' } })
+        .select('codigo nombre dominio clase definicion')
+        .limit(20);
+      return res.json(resultados);
+    }
+
+    const condiciones = tokens.map(token => {
+      const regex = toFlexibleRegex(token);
+      return {
+        $or: [
+          { codigo:                     { $regex: regex } },
+          { nombre:                     { $regex: regex } },
+          { definicion:                 { $regex: regex } },
+          { caracteristicas_definitorias: { $regex: regex } },
+          { factores_relacionados:      { $regex: regex } },
+        ]
+      };
+    });
+
+    const resultados = await Nanda.find({ $and: condiciones })
+      .select('codigo nombre dominio clase definicion')
+      .limit(20);
 
     res.json(resultados);
   } catch (error) {
-    console.error("Error en búsqueda inteligente:", error);
-    res.status(500).json({ error: "Error en la búsqueda de texto" });
+    console.error("Error en búsqueda:", error);
+    res.status(500).json({ error: "Error en la búsqueda" });
   }
 });
 

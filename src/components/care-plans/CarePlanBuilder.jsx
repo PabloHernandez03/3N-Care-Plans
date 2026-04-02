@@ -290,7 +290,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                         <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#16a09e] text-lg" />
                         <input 
                             type="text" 
-                            placeholder="Buscar diagnóstico por nombre o síntoma..." 
+                            placeholder="Buscar diagnóstico por nombre, síntoma o código..." 
                             value={searchTerm} 
                             onChange={handleSearch} 
                             className="w-full pl-14 pr-6 py-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-medium focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-4 focus:ring-[#16a09e]/10 transition-all placeholder-gray-400"
@@ -304,7 +304,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                     {searchResults.map((nanda) => (
                                         <li key={nanda.codigo} className="p-5 hover:bg-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors">
                                             <div className="flex-1">
-                                                <p className="font-bold text-[#0f3460] text-base">{nanda.nombre}</p>
+                                                <p className="font-bold text-[#0f3460] text-base">{nanda.nombre} <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider ml-2">#{nanda.codigo}</span></p>
                                                 <p className="text-sm text-gray-500 mt-1 leading-relaxed">{nanda.definicion}</p>
                                             </div>
                                             <button onClick={() => handleSelectNanda(nanda)} className="px-6 py-3 bg-[#16a09e]/10 text-[#16a09e] font-bold text-sm rounded-xl hover:bg-[#16a09e] hover:text-white transition-all w-full md:w-auto shrink-0">
@@ -335,7 +335,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                                     <FontAwesomeIcon icon={dom.icon} />
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs font-black text-[#16a09e] uppercase tracking-wider mb-1">Dominio de salud</p>
+                                                    <p className="text-xs font-black text-[#16a09e] uppercase tracking-wider mb-1">Dominio #{id}</p>
                                                     <p className="text-base font-bold text-[#0f3460] leading-snug">{dom.nombre}</p>
                                                     <p className="text-xs text-gray-500 mt-1 font-medium">{dom.totalDiagnosticos} opciones disponibles</p>
                                                 </div>
@@ -368,7 +368,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                                                         {dom.clases[clase].map((nanda) => (
                                                                             <li key={nanda.codigo} className="p-4 flex flex-col items-start gap-3 hover:bg-gray-50 transition-colors group">
                                                                                 <div className="w-full">
-                                                                                    <p className="text-sm font-bold text-gray-900 leading-snug group-hover:text-[#16a09e] transition-colors">{nanda.nombre}</p>
+                                                                                    <p className="text-sm font-bold text-gray-900 leading-snug group-hover:text-[#16a09e] transition-colors">{nanda.nombre} <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider ml-2">#{nanda.codigo}</span></p>
                                                                                     <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{nanda.definicion}</p>
                                                                                 </div>
                                                                                 <button 
