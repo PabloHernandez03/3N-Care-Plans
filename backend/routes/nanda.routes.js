@@ -14,19 +14,31 @@ router.get("/", async (req, res) => {
 
 router.get("/search/:query", async (req, res) => {
   try {
-    const palabra = req.params.query;
+    const palabra = req.params.query.trim();
+    if (!palabra) return res.json([]);
 
-    const resultados = await Nanda.find(
-      { $text: { $search: palabra } },
-      { score: { $meta: "textScore" } } 
-    )
-    .sort({ score: { $meta: "textScore" } }) 
-    .select("codigo nombre dominio clase definicion"); 
+    // Dividir en tokens para buscar cada palabra por separado
+    const tokens = palabra.split(/\s+/).filter(Boolean);
+
+    // Cada token se convierte en un regex que busca en nombre, definicion,
+    // caracteristicas_definitorias y factores_relacionados
+    const condiciones = tokens.map(token => ({
+      $or: [
+        { nombre:                     { $regex: token, $options: 'i' } },
+        { definicion:                 { $regex: token, $options: 'i' } },
+        { caracteristicas_definitorias: { $regex: token, $options: 'i' } },
+        { factores_relacionados:      { $regex: token, $options: 'i' } },
+      ]
+    }));
+
+    const resultados = await Nanda.find({ $and: condiciones })
+      .select('codigo nombre dominio clase definicion')
+      .limit(20);
 
     res.json(resultados);
   } catch (error) {
-    console.error("Error en búsqueda inteligente:", error);
-    res.status(500).json({ error: "Error en la búsqueda de texto" });
+    console.error("Error en búsqueda:", error);
+    res.status(500).json({ error: "Error en la búsqueda" });
   }
 });
 
