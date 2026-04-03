@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import api from '@/utils/api';
 
 const calcularEdad = (fechaStr) => {
     if (!fechaStr || fechaStr.length < 10) return null;
@@ -70,26 +71,18 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
         };
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            const res = await api.post('/api/patients', payload);
 
-            if (res.ok) {
-                showToast("Paciente registrado exitosamente", "success");
-                onPatientSaved(await res.json());
-            } else {
-                const { error: msg } = await res.json();
-                setError(msg || 'Error al guardar el paciente.');
-                showToast(msg || 'Error al guardar el paciente.', 'error');
-            }
-        } catch {
-            setError('No se pudo conectar con el servidor.');
-            showToast('No se pudo conectar con el servidor.', 'error');
+            showToast("Paciente registrado exitosamente", "success");
+            onPatientSaved(res.data);
+
+        } catch (err) {
+            const msg = err.response?.data?.error || 'No se pudo conectar con el servidor.';
+            setError(msg);
+            showToast(msg, 'error');
         } finally {
-            setLoading(false);
-        }
+        setLoading(false);
+    }
     };
 
     return (

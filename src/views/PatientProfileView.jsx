@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '@/utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faArrowLeft, faUser, faHospital, faNotesMedical,
@@ -11,8 +11,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-
-const API = import.meta.env.VITE_API_URL;
 
 const bloodColors = {
     'A+':  'bg-red-100 text-red-700',    'A-':  'bg-red-100 text-red-700',
@@ -177,7 +175,7 @@ export default function PatientProfileView() {
 
     /* ── Cargar datos ── */
     useEffect(() => {
-        axios.get(`${API}/api/patients/${id}`)
+        api.get(`/api/patients/${id}`)
             .then(res => {
                 setData({
                     patient:        res.data.patient        || res.data,
@@ -247,7 +245,7 @@ export default function PatientProfileView() {
     async function saveIdent() {
         setSaving('ident');
         try {
-            const res = await axios.put(`${API}/api/patients/${id}`, {
+            const res = await api.put(`/api/patients/${id}`, {
                 nombre:      draftIdent.nombre,
                 curp:        draftIdent.curp.toUpperCase(),
                 demograficos: {
@@ -311,7 +309,7 @@ export default function PatientProfileView() {
                     quirurgicos:   buildList(draftAnt.quirurgicos,   'otroQuir'),
                 },
             };
-            const res = await axios.put(`${API}/api/patients/${id}/expediente`, payload);
+            const res = await api.put(`/api/patients/${id}/expediente`, payload);
             setData(prev => ({ ...prev, clinicalRecord: res.data }));
             setEditAnt(false);
         } catch {
@@ -349,7 +347,7 @@ export default function PatientProfileView() {
                     ? [{ ninguna: true }]
                     : draftClinic.medicacionActual.filter(m => m.nombre),
             };
-            const res = await axios.put(`${API}/api/patients/${id}/expediente`, payload);
+            const res = await api.put(`/api/patients/${id}/expediente`, payload);
             setData(prev => ({ ...prev, clinicalRecord: res.data }));
             setEditClinic(false);
         } catch {
@@ -381,7 +379,7 @@ export default function PatientProfileView() {
                 },
                 redCuidados: draftHabits.redCuidados,
             };
-            const res = await axios.put(`${API}/api/patients/${id}/expediente`, payload);
+            const res = await api.put(`/api/patients/${id}/expediente`, payload);
             setData(prev => ({ ...prev, clinicalRecord: res.data }));
             setEditHabits(false);
         } catch {
