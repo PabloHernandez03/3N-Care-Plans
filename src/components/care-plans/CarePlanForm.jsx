@@ -4,6 +4,7 @@ import {
     faUser, faPills, faHospital, faLeaf, faClipboard, 
     faCalendar, faMagnifyingGlass, faChevronDown 
 } from '@fortawesome/free-solid-svg-icons';
+import api from '@/utils/api';
 
 /* ─── Utilidades ─────────────────────────────────────────────────────────── */
 const calcularEdad = (fechaStr) => {
@@ -127,33 +128,27 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         const fetchData = async () => {
             try {
                 const [patRes, planRes] = await Promise.all([
-                    fetch(`${import.meta.env.VITE_API_URL}/api/patients`),
-                    fetch(`${import.meta.env.VITE_API_URL}/api/careplans`)
+                    api.get('/api/patients'),
+                    api.get('/api/careplans')
                 ]);
-                
-                if (patRes.ok) {
-                    const patData = await patRes.json();
-                    // Ordenar alfabéticamente
-                    const sorted = patData.sort((a, b) => {
-                        const nameA = `${a.nombre?.apellidoPaterno || ''} ${a.nombre?.apellidoMaterno || ''} ${a.nombre?.nombre || ''}`.trim();
-                        const nameB = `${b.nombre?.apellidoPaterno || ''} ${b.nombre?.apellidoMaterno || ''} ${b.nombre?.nombre || ''}`.trim();
-                        return nameA.localeCompare(nameB, 'es');
-                    });
-                    setPatientList(sorted);
-                }
 
-                if (planRes.ok) {
-                    const planData = await planRes.json();
-                    // Extraer IDs de pacientes con planes "Activos"
-                    const activeIds = new Set(
-                        planData
-                            .filter(p => p.estado === 'Activo' && p.pacienteId)
-                            .map(p => typeof p.pacienteId === 'object' ? p.pacienteId._id : p.pacienteId)
-                    );
-                    setPatientsWithActivePlans(activeIds);
-                }
+                const patData = patRes.data;
+                const sorted = patData.sort((a, b) =>
+                a.nombre.apellidoPaterno.localeCompare(b.nombre.apellidoPaterno)
+                );
+                setPatientList(sorted);
+                const planes = planRes.data || [];
+                // Extraer IDs de pacientes con planes "Activos"
+                const activeIds = new Set(
+                    planes
+                        .filter(p => p.estado === 'Activo' && p.pacienteId)
+                        .map(p => typeof p.pacienteId === 'object' ? p.pacienteId._id : p.pacienteId)
+                );
+                setPatientsWithActivePlans(activeIds);
+
             } catch (err) {
-                console.error("Error al cargar datos:", err);
+                const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
+                showToast(msg, "error");
             }
         };
         fetchData();
@@ -231,63 +226,84 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                     ingreso: ingresoPayload
                 };
 
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payloadCompleto)
-                });
+                // const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
+                //     method: 'POST', headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify(payloadCompleto)
+                // });
                 
-                if (res.ok) { 
-                    const savedData = await res.json();
-                    const pacienteReal = savedData.patient;
-                    pacienteReal.ingresoId = savedData.admission?._id; 
+                // if (res.ok) { 
+                //     const savedData = await res.json();
+                //     const pacienteReal = savedData.patient;
+                //     pacienteReal.ingresoId = savedData.admission?._id; 
                     
-                    showToast("Paciente e ingreso creados correctamente", "success");
-                    onPatientSaved(pacienteReal); 
-                } else { 
-                    const err = await res.json(); 
-                    showToast(`Error: ${err.error}`, "error"); 
-                }
-            } catch { 
-                showToast("No se pudo conectar con el servidor.", "error"); 
+                //     showToast("Paciente e ingreso creados correctamente", "success");
+                //     onPatientSaved(pacienteReal); 
+                // } else { 
+                //     const err = await res.json(); 
+                //     showToast(`Error: ${err.error}`, "error"); 
+                // }
+                    const res = await api.post('/api/patients', payloadCompleto);
+                    if (res.status === 201) {
+                        const savedData = res.data;
+                        const pacienteReal = savedData.patient;
+                        pacienteReal.ingresoId = savedData.admission?._id;
+                        showToast("Paciente e ingreso creados correctamente", "success");
+                        onPatientSaved(pacienteReal);
+                    } else { 
+                        showToast(`Error: ${res.data.error || 'Error desconocido'}`, "error");
+                    }
+            } catch (err) {
+                const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
+                showToast(msg, "error");
             }
         } else {
             try {
-                await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
-                });
+                // await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
+                //     method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
+                // });
                 
-                await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
-                        medicacionActual: patientPayload.medicacionActual, habitos: patientPayload.habitos,
-                        redCuidados: patientPayload.redCuidados
-                    })
+                // await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
+                //     method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({
+                //         antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
+                //         medicacionActual: patientPayload.medicacionActual, habitos: patientPayload.habitos,
+                //         redCuidados: patientPayload.redCuidados
+                //     })
+                // });
+
+                await api.put(`/api/patients/${selectedOption}`, {
+                    nombre: patientPayload.nombre,
+                    curp: patientPayload.curp,
+                    demograficos: patientPayload.demograficos
                 });
 
-                const ingRes = await fetch(`${import.meta.env.VITE_API_URL}/api/admissions`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pacienteId: selectedOption, ingreso: ingresoPayload })
+                await api.put(`/api/patients/${selectedOption}/expediente`, {
+                    antecedentes: patientPayload.antecedentes,
+                    alergias: patientPayload.alergias,
+                    medicacionActual: patientPayload.medicacionActual,
+                    habitos: patientPayload.habitos,
+                    redCuidados: patientPayload.redCuidados
                 });
 
-                if (ingRes.ok) { 
-                    const savedAdmission = await ingRes.json();
-                    const pacienteExistente = patientList.find(p => p._id === selectedOption);
-                    
-                    const pacienteParaBuilder = {
-                        ...pacienteExistente,
-                        nombre: patientPayload.nombre,
-                        ingresoId: savedAdmission._id || savedAdmission.data?._id
-                    };
-                    
-                    showToast("Expediente y admisión actualizados correctamente", "success");
-                    onPatientSaved(pacienteParaBuilder); 
-                } else { 
-                    showToast("Hubo un error al guardar la nueva admisión.", "error"); 
-                }
-            } catch { 
-                showToast("No se pudo conectar con el servidor.", "error"); 
+                const ingRes = await api.post('/api/admissions', {
+                    pacienteId: selectedOption,
+                    ingreso: ingresoPayload
+                });
+
+                const savedAdmission = ingRes.data;
+                const pacienteExistente = patientList.find(p => p._id === selectedOption);
+
+                const pacienteParaBuilder = {
+                    ...pacienteExistente,
+                    nombre: patientPayload.nombre,
+                    ingresoId: savedAdmission._id || savedAdmission.data?._id
+                };
+                showToast("Expediente y admisión actualizados correctamente", "success");
+                onPatientSaved(pacienteParaBuilder);
+            } catch (err) {
+                const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
+                showToast(msg, "error");
             }
         }
     };
@@ -339,8 +355,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         });
         document.getElementById("admissionTime").value = "";
 
-        fetch(`${import.meta.env.VITE_API_URL}/api/patients/${id}`)
-            .then(r => r.json())
+        api.get(`/api/patients/${id}`)
             .then(({ clinicalRecord }) => {
                 if (!clinicalRecord) return;
                 document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(i => i.checked = false);

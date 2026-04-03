@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import axios from 'axios';
+import api from '@/utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faUsers, faUserCheck, faClipboardList,
@@ -177,21 +177,20 @@ export default function DashboardView() {
 
     const user       = JSON.parse(sessionStorage.getItem('user') || '{}');
     const enfermeroId = user?._id;
-    const api        = import.meta.env.VITE_API_URL;
 
     /* ── Cargar datos + config ── */
     useEffect(() => {
         Promise.all([
-            axios.get(`${api}/api/patients`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/patients/with-admission`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/careplans`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/admissions/tendencia`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/admissions/diagnosticos`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/dashboard-config/${enfermeroId}`).catch(() => ({ data: null })),
-            axios.get(`${api}/api/admissions/stats/medicamentos`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/admissions/stats/reingresos`).catch(() => ({ data: null })),
-            axios.get(`${api}/api/admissions/stats/estancia`).catch(() => ({ data: [] })),
-            axios.get(`${api}/api/patients/stats/expedientes`).catch(() => ({ data: null })),
+            api.get(`/api/patients`).catch(() => ({ data: [] })),
+            api.get(`/api/patients/with-admission`).catch(() => ({ data: [] })),
+            api.get(`/api/careplans`).catch(() => ({ data: [] })),
+            api.get(`/api/admissions/tendencia`).catch(() => ({ data: [] })),
+            api.get(`/api/admissions/diagnosticos`).catch(() => ({ data: [] })),
+            api.get(`/api/dashboard-config/${enfermeroId}`).catch(() => ({ data: null })),
+            api.get(`/api/admissions/stats/medicamentos`).catch(() => ({ data: [] })),
+            api.get(`/api/admissions/stats/reingresos`).catch(() => ({ data: null })),
+            api.get(`/api/admissions/stats/estancia`).catch(() => ({ data: [] })),
+            api.get(`/api/patients/stats/expedientes`).catch(() => ({ data: null })),
         ]).then(([pRes, aRes, cRes, admRes, diagRes, cfgRes, medRes, reinRes, estRes, expRes]) => {
             setPatients(pRes.data     || []);
             setWithAdm(aRes.data      || []);
@@ -210,7 +209,7 @@ export default function DashboardView() {
     const saveConfig = useCallback(async (newWidgets) => {
         setSavingConfig(true);
         try {
-            await axios.put(`${api}/api/dashboard-config/${enfermeroId}`, { widgets: newWidgets });
+            await api.put(`/api/dashboard-config/${enfermeroId}`, { widgets: newWidgets });
         } catch {
             console.error('Error guardando configuración');
             console.log('Config que se intentó guardar:', newWidgets);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '@/utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faArrowLeft, faUser, faStethoscope, faBullseye, faHandHoldingMedical, faChevronDown, faChevronUp, 
@@ -107,7 +107,7 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const resPatient = await axios.get(`${import.meta.env.VITE_API_URL}/api/patients/${planData.pacienteId._id}`);
+                const resPatient = await api.get(`/api/patients/${planData.pacienteId._id}`);
                 setPatientData(resPatient.data.patient || resPatient.data);
                 setClinicalRecord(resPatient.data.clinicalRecord || null);
                 setAdmissions(resPatient.data.admissions || []);
@@ -115,18 +115,15 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                 const codigosNoc = planData.nocsEvaluados?.map(n => n.codigo) || [];
                 const nombresNoc = {};
                 for (const cod of codigosNoc) {
-                    const resNoc = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/${cod}`);
-                    if (resNoc.ok) {
-                        const dataNoc = await resNoc.json();
-                        nombresNoc[cod] = dataNoc.nombre;
-                    }
+                    const resNoc = await api.get(`/api/noc/${cod}`);
+                    nombresNoc[cod] = resNoc.data.nombre;
                 }
                 setNocNames(nombresNoc);
             } catch (error) { console.error("Error al cargar detalles:", error); }
             finally { setLoading(false); }
         };
         fetchData();
-    }, [planData]);
+    }, []);
 
     const toggleNicActivities = async (codigoNic) => {
         if (nicActivities[codigoNic]) {
@@ -134,22 +131,19 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
             return;
         }
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/${codigoNic}`);
-            if (res.ok) {
-                const data = await res.json();
-                setNicActivities(prev => ({ ...prev, [codigoNic]: data.actividades || [] }));
-            }
+            const res = await api.get(`/api/nic/${codigoNic}`);
+            setNicActivities(prev => ({ 
+                ...prev, 
+                [codigoNic]: res.data.actividades || [] 
+            }));
         } catch (e) { console.error(e); }
     };
 
     const openNocEvaluation = async (nocEval) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/${nocEval.codigo}`);
-            if (res.ok) {
-                const fullNoc = await res.json();
-                setEvaluatingNoc(fullNoc);
-                setCurrentScores(nocEval.indicadores || {});
-            }
+            const res = await api.get(`/api/noc/${nocEval.codigo}`);
+            setEvaluatingNoc(res.data);
+            setCurrentScores(nocEval.indicadores || {});
         } catch (e) { console.error("Error al cargar NOC:", e); }
     };
 
@@ -171,23 +165,19 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
         );
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans/${planData._id}`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nocsEvaluados: updatedNocs })
+            await api.put(`/api/careplans/${planData._id}`, {
+                nocsEvaluados: updatedNocs
             });
 
-            if (res.ok) {
-                setPlanData(prev => ({ ...prev, nocsEvaluados: updatedNocs }));
-                setEvaluatingNoc(null);
-                if (showToast) showToast("Evaluación actualizada correctamente", "success");
-            } else {
-                if (showToast) showToast("Error al guardar la evaluación", "error");
-            }
+            setPlanData(prev => ({ ...prev, nocsEvaluados: updatedNocs }));
+            setEvaluatingNoc(null);
+            if (showToast) showToast("Evaluación actualizada correctamente", "success");
         } catch (error) {
-            if (showToast) showToast("Error de red", "error");
-        } finally {
-            setIsSavingEval(false);
-        }
+            const msg = error.response?.data?.error || "Error de red";
+            if (showToast) showToast(msg, "error");
+        }finally {
+                    setIsSavingEval(false);
+                }
     };
 
     const handlePrintPlan = () => {

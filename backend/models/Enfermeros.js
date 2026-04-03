@@ -2,11 +2,16 @@ import mongoose from 'mongoose';
 
 const enfermeroSchema = new mongoose.Schema({
   cuenta: {
-    id_interno: { type: Number, unique: true },
-    correo_electronico: { type: String, required: true},
-    password_hash: { type: String, required: true },
-    rol: { type: String, default: "enfermero" },
-    estado_cuenta: { type: String, default: "activo" }
+      id_interno:          { type: Number, unique: true },
+      correo_electronico:  { type: String, required: true, unique: true },
+      password_hash:       { type: String, required: true },
+      rol:                 { type: String, enum: ['superadmin', 'jefe', 'enfermero'], default: 'enfermero' },
+      estado_cuenta:       { type: String, enum: ['activo', 'inactivo'], default: 'activo' }
+  },
+  institucionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Institucion',
+    default: null  // null = enfermero independiente (clínica privada)
   },
   identidad: {
     nombre: String,

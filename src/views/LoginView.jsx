@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import logo from '@/assets/logo.png'
-import { useNavigate, Link } from 'react-router-dom'; 
+import { useNavigate, Link, useLocation } from 'react-router-dom'; 
 
 const carouselData = [
     {
@@ -26,6 +26,9 @@ const LoginView = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [carouselIndex, setCarouselIndex] = useState(0);
+
+    const location = useLocation();
+    const registrado = location.state?.registered;
 
     useEffect(() => {
         sessionStorage.removeItem('user');
@@ -64,15 +67,13 @@ const LoginView = () => {
                 }
             }
 
-            if (response.data && response.data.user) {
-                const userData = response.data.user;
-                sessionStorage.setItem('user', JSON.stringify(userData));
-
-                if (userData.cuenta.rol === 'admin') {
-                    navigate('/admin-dashboard'); 
-                } else {
-                    navigate('/dashboard');
-                }
+            if (response.data?.user) {
+                sessionStorage.setItem('user',  JSON.stringify(response.data.user));
+                sessionStorage.setItem('token', response.data.token); // ← asegúrate de tenerlo
+                // Redirigir según rol
+                const rol = response.data.user.cuenta.rol;
+                if (rol === 'superadmin' || rol === 'jefe') navigate('/dashboard');
+                else navigate('/dashboard');
             }
         } catch (err) {
             const mensajeError = err.response?.data?.error || 'Error de autenticación.';
@@ -109,6 +110,12 @@ const LoginView = () => {
                         )}
                     </div>
                     
+                    {registrado && (
+                        <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-500 text-green-700 rounded text-sm">
+                            ✓ Cuenta creada exitosamente. Ya puedes iniciar sesión.
+                        </div>
+                    )}
+
                     <form
                         onSubmit={handleLogin}
                         className="w-full max-w-md flex flex-col gap-4 lg:gap-5"

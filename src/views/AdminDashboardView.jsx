@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
+import api from '@/utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, faUserCheck, faUserXmark, 

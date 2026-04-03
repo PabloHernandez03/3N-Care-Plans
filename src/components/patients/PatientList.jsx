@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
+import api from "@/utils/api";
 import PatientCards from "./PatientCards";
 
 function sortPatients(patients, sort, dir) {
@@ -46,7 +46,7 @@ export default function PatientList({ showToast }) {
     const [listPageSize, setListPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     useEffect(() => {
-        axios.get(`${import.meta.env.VITE_API_URL}/api/patients/with-admission`)
+        api.get('/api/patients/with-admission')
             .then(res => setPatients(res.data))
             .catch(err => console.error("Error al cargar pacientes:", err));
     }, []);
