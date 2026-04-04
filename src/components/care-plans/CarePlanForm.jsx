@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUser, faPills, faHospital, faLeaf, faClipboard, 
-    faCalendar, faMagnifyingGlass, faChevronDown 
+    faCalendar, faMagnifyingGlass, faChevronDown, faHeartPulse
 } from '@fortawesome/free-solid-svg-icons';
 import api from '@/utils/api';
 
@@ -126,6 +126,23 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
     const [noMeds, setNoMeds] = useState(false);
     const [edadMostrada, setEdadMostrada]       = useState(null);
 
+    const [signos, setSignos] = useState({
+        frecuenciaCardiaca:     '',
+        sistolica:              '',
+        diastolica:             '',
+        frecuenciaRespiratoria: '',
+        temperatura:            '',
+        saturacionOxigeno:      '',
+        glucosa:                '',
+        peso:                   '',
+        talla:                  '',
+        dolor:                  '',
+    });
+    
+    const handleSigno = (e) => setSignos(p => ({ ...p, [e.target.name]: e.target.value }));
+
+    const haySignos = Object.values(signos).some(v => v !== '');
+
     const addMedicamento = () => {
         setMedicamentos(prev => [...prev, { nombre: "", dosis: "", frecuencia: "", via: "" }]);
     };
@@ -138,22 +155,21 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         setMedicamentos(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
     };
 
-    // 🟢 ACTUALIZADO: Obtenemos Pacientes y Planes para cruzar los datos
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const [patRes, planRes] = await Promise.all([
                     api.get('/api/patients'),
-                    api.get('/api/careplans')
+                    api.get('/api/careplans').catch(() => ({ data: [] })), // ← no rompe si falla
                 ]);
 
-                const patData = patRes.data;
-                const sorted = patData.sort((a, b) =>
-                a.nombre.apellidoPaterno.localeCompare(b.nombre.apellidoPaterno)
+                const patData = patRes.data || [];
+                const sorted = [...patData].sort((a, b) =>
+                    (a.nombre?.apellidoPaterno || '').localeCompare(b.nombre?.apellidoPaterno || '')
                 );
                 setPatientList(sorted);
+
                 const planes = planRes.data || [];
-                // Extraer IDs de pacientes con planes "Activos"
                 const activeIds = new Set(
                     planes
                         .filter(p => p.estado === 'Activo' && p.pacienteId)
@@ -162,6 +178,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 setPatientsWithActivePlans(activeIds);
 
             } catch (err) {
+                console.error(err);
                 const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
                 showToast(msg, "error");
             }
@@ -240,23 +257,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                     ...patientPayload,
                     ingreso: ingresoPayload
                 };
-
-                // const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients`, {
-                //     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify(payloadCompleto)
-                // });
-                
-                // if (res.ok) { 
-                //     const savedData = await res.json();
-                //     const pacienteReal = savedData.patient;
-                //     pacienteReal.ingresoId = savedData.admission?._id; 
-                    
-                //     showToast("Paciente e ingreso creados correctamente", "success");
-                //     onPatientSaved(pacienteReal); 
-                // } else { 
-                //     const err = await res.json(); 
-                //     showToast(`Error: ${err.error}`, "error"); 
-                // }
                     const res = await api.post('/api/patients', payloadCompleto);
                     if (res.status === 201) {
                         const savedData = res.data;
@@ -273,19 +273,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             }
         } else {
             try {
-                // await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}`, {
-                //     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ nombre: patientPayload.nombre, curp: patientPayload.curp, demograficos: patientPayload.demograficos })
-                // });
-                
-                // await fetch(`${import.meta.env.VITE_API_URL}/api/patients/${selectedOption}/expediente`, {
-                //     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({
-                //         antecedentes: patientPayload.antecedentes, alergias: patientPayload.alergias,
-                //         medicacionActual: patientPayload.medicacionActual, habitos: patientPayload.habitos,
-                //         redCuidados: patientPayload.redCuidados
-                //     })
-                // });
 
                 await api.put(`/api/patients/${selectedOption}`, {
                     nombre: patientPayload.nombre,
@@ -316,6 +303,27 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 };
                 showToast("Expediente y admisión actualizados correctamente", "success");
                 onPatientSaved(pacienteParaBuilder);
+                if (haySignos) {
+                    const pacienteId = selectedOption || savedData.patient?.id;
+                    await api.post('/api/vitalsigns', {
+                        pacienteId,
+                        signos: {
+                            frecuenciaCardiaca:     signos.frecuenciaCardiaca     ? Number(signos.frecuenciaCardiaca)     : undefined,
+                            presionArterial: (signos.sistolica || signos.diastolica) ? {
+                                sistolica:  signos.sistolica  ? Number(signos.sistolica)  : undefined,
+                                diastolica: signos.diastolica ? Number(signos.diastolica) : undefined,
+                            } : undefined,
+                            frecuenciaRespiratoria: signos.frecuenciaRespiratoria ? Number(signos.frecuenciaRespiratoria) : undefined,
+                            temperatura:            signos.temperatura            ? Number(signos.temperatura)            : undefined,
+                            saturacionOxigeno:      signos.saturacionOxigeno      ? Number(signos.saturacionOxigeno)      : undefined,
+                            glucosa:                signos.glucosa                ? Number(signos.glucosa)                : undefined,
+                            peso:                   signos.peso                   ? Number(signos.peso)                   : undefined,
+                            talla:                  signos.talla                  ? Number(signos.talla)                  : undefined,
+                            dolor:                  signos.dolor                  ? Number(signos.dolor)                  : undefined,
+                        },
+                        observaciones: signos.observaciones || '',
+                                    })
+                }
             } catch (err) {
                 const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
                 showToast(msg, "error");
@@ -906,6 +914,126 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                         </div>
                     </Card>
                 </div>
+            </div>
+
+            {/* ══ SECCIÓN 6: SIGNOS VITALES ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={<FontAwesomeIcon icon={faHeartPulse} />}>
+                    Signos vitales
+                    <span className="ml-2 text-xs font-normal text-gray-400 normal-case tracking-normal">opcional</span>
+                </SectionTitle>
+
+                <Card className="col-span-full">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+
+                        {/* FC */}
+                        <div>
+                            <FieldLabel>FC <span className="text-gray-300 font-normal">bpm</span></FieldLabel>
+                            <input name="frecuenciaCardiaca" type="number" min="0" max="300"
+                                value={signos.frecuenciaCardiaca} onChange={handleSigno}
+                                placeholder="72" className={inputCls} />
+                        </div>
+
+                        {/* PA */}
+                        <div>
+                            <FieldLabel>PA <span className="text-gray-300 font-normal">mmHg</span></FieldLabel>
+                            <div className="flex items-center gap-1">
+                                <input name="sistolica" type="number" min="0" max="300"
+                                    value={signos.sistolica} onChange={handleSigno}
+                                    placeholder="120" className={inputCls} />
+                                <span className="text-gray-400 text-sm font-bold">/</span>
+                                <input name="diastolica" type="number" min="0" max="200"
+                                    value={signos.diastolica} onChange={handleSigno}
+                                    placeholder="80" className={inputCls} />
+                            </div>
+                        </div>
+
+                        {/* FR */}
+                        <div>
+                            <FieldLabel>FR <span className="text-gray-300 font-normal">rpm</span></FieldLabel>
+                            <input name="frecuenciaRespiratoria" type="number" min="0" max="60"
+                                value={signos.frecuenciaRespiratoria} onChange={handleSigno}
+                                placeholder="16" className={inputCls} />
+                        </div>
+
+                        {/* Temperatura */}
+                        <div>
+                            <FieldLabel>Temp <span className="text-gray-300 font-normal">°C</span></FieldLabel>
+                            <input name="temperatura" type="number" step="0.1" min="30" max="45"
+                                value={signos.temperatura} onChange={handleSigno}
+                                placeholder="36.5" className={inputCls} />
+                        </div>
+
+                        {/* SpO2 */}
+                        <div>
+                            <FieldLabel>SpO₂ <span className="text-gray-300 font-normal">%</span></FieldLabel>
+                            <input name="saturacionOxigeno" type="number" min="0" max="100"
+                                value={signos.saturacionOxigeno} onChange={handleSigno}
+                                placeholder="98" className={inputCls} />
+                        </div>
+
+                        {/* Glucosa */}
+                        <div>
+                            <FieldLabel>Glucosa <span className="text-gray-300 font-normal">mg/dL</span></FieldLabel>
+                            <input name="glucosa" type="number" min="0"
+                                value={signos.glucosa} onChange={handleSigno}
+                                placeholder="90" className={inputCls} />
+                        </div>
+
+                        {/* Peso */}
+                        <div>
+                            <FieldLabel>Peso <span className="text-gray-300 font-normal">kg</span></FieldLabel>
+                            <input name="peso" type="number" step="0.1" min="0"
+                                value={signos.peso} onChange={handleSigno}
+                                placeholder="70" className={inputCls} />
+                        </div>
+
+                        {/* Talla */}
+                        <div>
+                            <FieldLabel>Talla <span className="text-gray-300 font-normal">cm</span></FieldLabel>
+                            <input name="talla" type="number" min="0"
+                                value={signos.talla} onChange={handleSigno}
+                                placeholder="170" className={inputCls} />
+                        </div>
+
+                        {/* Dolor */}
+                        <div>
+                            <FieldLabel>Dolor <span className="text-gray-300 font-normal">0–10</span></FieldLabel>
+                            <input name="dolor" type="number" min="0" max="10"
+                                value={signos.dolor} onChange={handleSigno}
+                                placeholder="0" className={inputCls} />
+                            {signos.dolor !== '' && (
+                                <div className="mt-1.5 flex items-center gap-1">
+                                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                        <div className="h-full rounded-full transition-all"
+                                            style={{
+                                                width: `${(signos.dolor / 10) * 100}%`,
+                                                background: signos.dolor <= 3 ? '#22c55e'
+                                                        : signos.dolor <= 6 ? '#f59e0b' : '#ef4444'
+                                            }} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-gray-400">{signos.dolor}/10</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Observaciones */}
+                        <div className="col-span-2 sm:col-span-3 lg:col-span-5">
+                            <FieldLabel>Observaciones</FieldLabel>
+                            <textarea name="observaciones" rows={2}
+                                    value={signos.observaciones || ''}
+                                    onChange={handleSigno}
+                                    placeholder="Notas adicionales sobre los signos vitales..."
+                                    className={`${inputCls} resize-none`} />
+                        </div>
+                    </div>
+
+                    {!haySignos && (
+                        <p className="text-xs text-gray-400 italic mt-3 text-center">
+                            Los signos vitales son opcionales. Puedes agregarlos ahora o después desde el perfil del paciente.
+                        </p>
+                    )}
+                </Card>
             </div>
 
             {/* ── ACCIONES ── */}
