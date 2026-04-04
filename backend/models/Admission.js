@@ -8,6 +8,11 @@ const admissionSchema = new mongoose.Schema({
     required: true
   },
 
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
+  },
+
   // ── Datos de ingreso ───────────────────────────────────
   ingreso: {
     fecha:             { type: Date, required: true, default: Date.now },

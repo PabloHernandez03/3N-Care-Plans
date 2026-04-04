@@ -41,6 +41,21 @@ const formatoFechaBackend = (fechaStr) => {
     return fechaStr;
 };
 
+const getToday = () => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const getNowTime = () => {
+    const d = new Date();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
 /* ─── Sub-componentes de UI ──────────────────────────────────────────────── */
 const SectionTitle = ({ icon, children }) => (
     <div className="col-span-full flex items-center gap-3 mt-2">
@@ -557,14 +572,16 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
 
                     <Card>
                         <FieldLabel htmlFor="patientBirthdate">Fecha de nacimiento</FieldLabel>
-                        <input id="patientBirthdate" name="patientBirthdate" type="text"
-                               placeholder="DD/MM/AAAA" onChange={handleDate} maxLength={10}
-                               pattern="\d{2}/\d{2}/\d{4}" className={inputCls} required />
-                        {edadMostrada !== null && (
-                            <div className="mt-2 inline-flex items-center gap-1.5 bg-primario/10 text-primario rounded-full px-3 py-1 text-xs font-semibold">
-                                <span><FontAwesomeIcon icon={faCalendar} /></span> {edadMostrada} años
-                            </div>
-                        )}
+                        <div className="relative">   
+                            <input id="patientBirthdate" name="patientBirthdate" type="text"
+                                placeholder="DD/MM/AAAA" onChange={handleDate} maxLength={10}
+                                pattern="\d{2}/\d{2}/\d{4}" className={inputCls} required />
+                            {edadMostrada !== null && (
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-primario/10 text-primario font-bold">
+                                        {edadMostrada} años
+                                    </span>
+                            )}
+                        </div>
                     </Card>
 
                     <Card>
@@ -606,15 +623,56 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Card>
                         <FieldLabel htmlFor="admissionDate">Fecha de ingreso</FieldLabel>
-                        <input id="admissionDate" name="admissionDate" type="text"
-                               placeholder="DD/MM/AAAA" onChange={handleDate} maxLength={10}
-                               pattern="\d{2}/\d{2}/\d{4}" className={inputCls} required />
+                        <div className="relative">
+                            <input 
+                                id="admissionDate" 
+                                name="admissionDate" 
+                                type="text"
+                                placeholder="DD/MM/AAAA" 
+                                onChange={handleDate} 
+                                maxLength={10}
+                                pattern="\d{2}/\d{2}/\d{4}" 
+                                className={`${inputCls} pr-16`} 
+                                required 
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const hoy = getToday();
+                                    const input = document.getElementById("admissionDate");
+                                    input.value = hoy;
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-[#16a09e]/10 text-[#16a09e] font-bold hover:bg-[#16a09e]/20 transition"
+                            >
+                                HOY
+                            </button>
+                        </div>
                     </Card>
 
                     <Card>
                         <FieldLabel htmlFor="admissionTime">Hora</FieldLabel>
-                        <input id="admissionTime" name="admissionTime" type="time"
-                               className={inputCls} required />
+                            <div className="relative">
+                                <input 
+                                    id="admissionTime" 
+                                    name="admissionTime" 
+                                    type="time"
+                                    className={`${inputCls} pr-20`} 
+                                    required 
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const ahora = getNowTime();
+                                        const input = document.getElementById("admissionTime");
+                                        input.value = ahora;
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-[#0f3460]/10 text-[#0f3460] font-bold hover:bg-[#0f3460]/20 transition"
+                                >
+                                    AHORA
+                                </button>
+                            </div>
                     </Card>
 
                     <Card>

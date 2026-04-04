@@ -9,6 +9,7 @@ import PatientProfileView from '../views/PatientProfileView.jsx';
 import ProfileView from '../views/ProfileView.jsx';
 import DictionaryView from '../views/DictionaryView.jsx';
 import AdminDashboardView from '../views/AdminDashboardView.jsx';
+import TeamView from '../views/TeamView.jsx';
 
 import ProtegerRutas from '../components/auth/ProtegerRutas.jsx';
 
@@ -33,6 +34,8 @@ export default function Router() {
                         <Route path="/care-plans" element={<CarePlansView />} />
                         <Route path="/profile" element={<ProfileView />} />
                         <Route path="/dictionary" element={<DictionaryView />} />
+                        <Route path="/team" element={<TeamView />} />
+
 
                         {/* RUTAS EXCLUSIVAS DE ADMIN */}
                         <Route element={<AdminRoute />}>
