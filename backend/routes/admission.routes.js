@@ -1,20 +1,38 @@
 import express from "express";
 import Admission from "../models/Admission.js";
 import ClinicalRecord from '../models/ClinicalRecord.js';
+import mongoose from "mongoose";
 
 const router = express.Router();
 
 // ── GET /stats/medicamentos ────────────────────────────────────────────────
 router.get('/stats/medicamentos', async (req, res) => {
   try {
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
     const result = await ClinicalRecord.aggregate([
+      {
+        $lookup: {
+          from: "patients",
+          localField: "pacienteId",
+          foreignField: "_id",
+          as: "patient"
+        }
+      },
+      { $unwind: "$patient" },
+      { $match: { "patient.ownerId": ownerId } }, // 🔥 FILTRO REAL
+
       { $unwind: '$medicacionActual' },
-      { $match: { 'medicacionActual.nombre': { $exists: true, $ne: '' }, 'medicacionActual.ninguna': { $ne: true } } },
+      { $match: { 
+          'medicacionActual.nombre': { $exists: true, $ne: '' }, 
+          'medicacionActual.ninguna': { $ne: true } 
+      }},
       { $group: { _id: '$medicacionActual.nombre', total: { $sum: 1 } } },
       { $sort: { total: -1 } },
       { $limit: 10 },
       { $project: { name: '$_id', value: '$total', _id: 0 } }
     ]);
+
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Error obteniendo medicamentos' });
@@ -24,7 +42,10 @@ router.get('/stats/medicamentos', async (req, res) => {
 // ── GET /stats/reingresos ──────────────────────────────────────────────────
 router.get('/stats/reingresos', async (req, res) => {
   try {
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
     const result = await Admission.aggregate([
+      { $match: { ownerId } }, // 🔥 FILTRO
       { $group: { _id: '$pacienteId', total: { $sum: 1 } } },
       { $group: {
           _id: null,
@@ -34,6 +55,7 @@ router.get('/stats/reingresos', async (req, res) => {
       }},
       { $project: { _id: 0, unIngreso: 1, dosIngresos: 1, tresMas: 1 } }
     ]);
+
     res.json(result[0] || { unIngreso: 0, dosIngresos: 0, tresMas: 0 });
   } catch (error) {
     res.status(500).json({ error: 'Error obteniendo reingresos' });
@@ -43,8 +65,10 @@ router.get('/stats/reingresos', async (req, res) => {
 // ── GET /stats/estancia ────────────────────────────────────────────────────
 router.get('/stats/estancia', async (req, res) => {
   try {
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
     const result = await Admission.aggregate([
-      { $match: { 'egreso.fecha': { $exists: true }, 'ingreso.fecha': { $exists: true } } },
+      { $match: { ownerId, 'egreso.fecha': { $exists: true }, 'ingreso.fecha': { $exists: true } } }, // 🔥
       { $project: {
           servicio: '$ingreso.servicio',
           dias: { $divide: [
@@ -62,6 +86,7 @@ router.get('/stats/estancia', async (req, res) => {
       { $limit: 8 },
       { $project: { name: '$_id', promedio: { $round: ['$promedio', 1] }, total: 1, _id: 0 } }
     ]);
+
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Error obteniendo estancias' });
@@ -71,24 +96,37 @@ router.get('/stats/estancia', async (req, res) => {
 // GET /diagnosticos — top diagnósticos más frecuentes
 router.get('/diagnosticos', async (req, res) => {
     try {
+        const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
         const result = await Admission.aggregate([
-            { $match: { 'ingreso.diagnosticoMedico': { $exists: true, $ne: '' } } },
+            { $match: { ownerId, 'ingreso.diagnosticoMedico': { $exists: true, $ne: '' } } }, // 🔥
             { $group: { _id: '$ingreso.diagnosticoMedico', total: { $sum: 1 } } },
             { $sort: { total: -1 } },
             { $limit: 8 },
             { $project: { name: '$_id', value: '$total', _id: 0 } }
         ]);
+
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo diagnósticos' });
     }
 });
-
 // ── GET /tendencia — Fechas de todos los ingresos (para dashboard) ─────────
 router.get("/tendencia", async (req, res) => {
   try {
-    const admissions = await Admission.find({}, { "ingreso.fecha": 1, _id: 0 });
-    res.json(admissions.map(a => ({ fecha: a.ingreso?.fecha })).filter(a => a.fecha));
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
+    const admissions = await Admission.find(
+      { ownerId }, // 🔥 FILTRO REAL
+      { "ingreso.fecha": 1, _id: 0 }
+    );
+
+    res.json(
+      admissions
+        .map(a => ({ fecha: a.ingreso?.fecha }))
+        .filter(a => a.fecha)
+    );
+
   } catch (error) {
     res.status(500).json({ error: "Error obteniendo tendencia" });
   }
@@ -98,7 +136,15 @@ router.get("/tendencia", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { pacienteId, ingreso } = req.body;
-    const newAdmission = await Admission.create({ pacienteId, ingreso });
+
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+
+    const newAdmission = await Admission.create({
+      pacienteId,
+      ingreso,
+      ownerId
+    });
+
     res.status(201).json(newAdmission);
   } catch (error) {
     res.status(500).json({ error: "Error al registrar ingreso" });
@@ -108,7 +154,8 @@ router.post("/", async (req, res) => {
 // ── GET /paciente/:id — Todos los ingresos de un paciente ─────────────────
 router.get("/paciente/:id", async (req, res) => {
   try {
-    const admissions = await Admission.find({ pacienteId: req.params.id })
+    const ownerId = new mongoose.Types.ObjectId(req.institucionId || req.enfermeroId);
+    const admissions = await Admission.find({ pacienteId: req.params.id, ownerId })
       .sort({ "ingreso.fecha": -1 });
     res.json(admissions);
   } catch (error) {
