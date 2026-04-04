@@ -22,7 +22,12 @@ function filtroAcceso(req) {
 // ── GET / ─────────────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
     try {
-        const patients = await Patient.find(filtroAcceso(req));
+        let filtro = filtroAcceso(req);
+        // Jefe puede filtrar por enfermero específico
+        if (req.query.enfermeroId && (req.rol === 'jefe' || req.rol === 'superadmin')) {
+            filtro = { ...filtro, enfermeroId: req.query.enfermeroId };
+        }
+        const patients = await Patient.find(filtro);
         res.json(patients);
     } catch {
         res.status(500).json({ error: "Error obteniendo pacientes" });
