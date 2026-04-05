@@ -88,7 +88,7 @@ router.post("/", async (req, res) => {
         const { nombre, curp, demograficos, antecedentes, alergias,
                 medicacionActual, habitos, redCuidados, ingreso } = req.body;
 
-        const ownerId = req.enfermeroId || req.institucionId;
+        const ownerId = req.institucionId || req.enfermeroId;
 
         const [savedPatient] = await Patient.create([{
             nombre, curp, demograficos,

@@ -1,4 +1,3 @@
-// models/CarePlan.js — Ahora vinculado también al ingreso
 import mongoose from "mongoose";
 
 const carePlanSchema = new mongoose.Schema({
@@ -16,6 +15,17 @@ const carePlanSchema = new mongoose.Schema({
   },
 
   fecha: { type: Date, default: Date.now },
+
+  enfermeroId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Enfermero',
+      default: null
+  },
+  institucionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Institucion',
+      default: null
+  },
 
   // ── NANDA ──────────────────────────────────────────────
   nanda: {

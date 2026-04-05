@@ -7,7 +7,8 @@ import {
     faPills, faLeaf, faPeopleRoof, faTriangleExclamation,
     faBed, faStethoscope, faCalendarDay, faClock,
     faCircleCheck, faCircleXmark, faChevronDown, faChevronUp,
-    faPencil, faCheck, faXmark, faPlus, faTrash, faSpinner
+    faPencil, faCheck, faXmark, faPlus, faTrash, faSpinner,
+    faHeartPulse,
 } from '@fortawesome/free-solid-svg-icons';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -30,6 +31,65 @@ function getInitials(nombre = {}) {
     return ((nombre.apellidoPaterno?.[0] || '') + (nombre.nombre?.[0] || '')).toUpperCase() || '?';
 }
 
+const getVitalColor = (label, value) => {
+    if (value == null) return "bg-gray-50 text-gray-800";
+
+    switch (label) {
+        case 'FC':
+            if (value < 60 || value > 100) return "bg-red-100 text-red-700";
+            if (value >= 90) return "bg-yellow-100 text-yellow-700";
+            return "bg-green-100 text-green-700";
+
+        case 'SpO₂':
+            if (value < 90) return "bg-red-100 text-red-700";
+            if (value < 95) return "bg-yellow-100 text-yellow-700";
+            return "bg-green-100 text-green-700";
+
+        case 'Temp':
+            if (value >= 38) return "bg-red-100 text-red-700";
+            if (value >= 37.5) return "bg-yellow-100 text-yellow-700";
+            return "bg-green-100 text-green-700";
+
+        case 'FR':
+            if (value < 12 || value > 20) return "bg-red-100 text-red-700";
+            return "bg-green-100 text-green-700";
+
+        case 'Dolor':
+            if (value >= 7) return "bg-red-100 text-red-700";
+            if (value >= 4) return "bg-yellow-100 text-yellow-700";
+            return "bg-green-100 text-green-700";
+
+        case 'Glucosa':
+            if (value < 70) return "bg-red-100 text-red-700";     // hipoglucemia
+            if (value > 180) return "bg-red-100 text-red-700";    // alta
+            if (value > 120) return "bg-yellow-100 text-yellow-700";
+            return "bg-green-100 text-green-700";
+
+        case 'PA': {
+            if (!value || typeof value !== 'string') return "bg-gray-50 text-gray-800";
+
+            const [sys, dia] = value.split('/').map(Number);
+
+            if (!sys || !dia) return "bg-gray-50 text-gray-800";
+
+            if (sys < 90 || dia < 60) return "bg-red-100 text-red-700";
+            if (sys > 140 || dia > 90) return "bg-red-100 text-red-700";
+            if (sys > 120 || dia > 80) return "bg-yellow-100 text-yellow-700";
+
+            return "bg-green-100 text-green-700";
+        }
+
+        case 'IMC':
+            if (value < 18.5) return "bg-blue-100 text-blue-700";   // bajo peso
+            if (value < 25)   return "bg-green-100 text-green-700"; // normal
+            if (value < 30)   return "bg-yellow-100 text-yellow-700"; // sobrepeso
+            return "bg-red-100 text-red-700"; // obesidad
+
+        default:
+            return "bg-gray-50 text-gray-800";
+    }
+};
+
 function parseFechaDDMMYYYY(str) {
     if (!str) return '';
     if (str.includes('T') || str.includes('-')) {
@@ -46,6 +106,125 @@ function toISOFromDDMMYYYY(str) {
     if (str.includes('T') || str.includes('-')) return str;
     const [d, m, y] = str.split('/');
     return new Date(`${y}-${m}-${d}T00:00:00`).toISOString();
+}
+
+function ModalNuevaToma({ pacienteId, onClose, onSaved }) {
+    const [form, setForm] = useState({
+        frecuenciaCardiaca: '', sistolica: '', diastolica: '',
+        frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
+        glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20 transition";
+    const handle = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+
+    async function handleSave() {
+        setSaving(true);
+        try {
+            const { data } = await api.post(`/api/vitalsigns`, {
+                pacienteId,
+                signos: {
+                    frecuenciaCardiaca:     form.frecuenciaCardiaca     ? Number(form.frecuenciaCardiaca)     : undefined,
+                    presionArterial: (form.sistolica || form.diastolica) ? {
+                        sistolica:  form.sistolica  ? Number(form.sistolica)  : undefined,
+                        diastolica: form.diastolica ? Number(form.diastolica) : undefined,
+                    } : undefined,
+                    frecuenciaRespiratoria: form.frecuenciaRespiratoria ? Number(form.frecuenciaRespiratoria) : undefined,
+                    temperatura:            form.temperatura            ? Number(form.temperatura)            : undefined,
+                    saturacionOxigeno:      form.saturacionOxigeno      ? Number(form.saturacionOxigeno)      : undefined,
+                    glucosa:                form.glucosa                ? Number(form.glucosa)                : undefined,
+                    peso:                   form.peso                   ? Number(form.peso)                   : undefined,
+                    talla:                  form.talla                  ? Number(form.talla)                  : undefined,
+                    dolor:                  form.dolor                  ? Number(form.dolor)                  : undefined,
+                },
+                observaciones: form.observaciones,
+            });
+            onSaved(data);
+        } catch {
+            alert('Error al guardar los signos vitales.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+             onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+                 onClick={e => e.stopPropagation()}>
+
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#0f3460] flex items-center justify-center text-white text-sm">
+                            <FontAwesomeIcon icon={faHeartPulse} />
+                        </div>
+                        <h2 className="font-semibold text-gray-800">Nueva toma de signos vitales</h2>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {[
+                            ['frecuenciaCardiaca',     'FC',      'bpm',   'number', '0','300','1'],
+                            ['frecuenciaRespiratoria', 'FR',      'rpm',   'number', '0','60', '1'],
+                            ['temperatura',            'Temp',    '°C',    'number', '30','45','0.1'],
+                            ['saturacionOxigeno',      'SpO₂',    '%',     'number', '0','100','1'],
+                            ['glucosa',                'Glucosa', 'mg/dL', 'number', '0','','1'],
+                            ['peso',                   'Peso',    'kg',    'number', '0','','0.1'],
+                            ['talla',                  'Talla',   'cm',    'number', '0','','1'],
+                            ['dolor',                  'Dolor',   '0–10',  'number', '0','10','1'],
+                        ].map(([name, label, unit, type, min, max, step]) => (
+                            <div key={name}>
+                                <p className="text-xs text-gray-400 mb-1">
+                                    {label} <span className="text-gray-300">{unit}</span>
+                                </p>
+                                <input name={name} type={type} min={min} max={max || undefined} step={step}
+                                       value={form[name]} onChange={handle}
+                                       className={inputCls} />
+                            </div>
+                        ))}
+
+                        {/* PA separada */}
+                        <div className="col-span-2 sm:col-span-1">
+                            <p className="text-xs text-gray-400 mb-1">PA <span className="text-gray-300">mmHg</span></p>
+                            <div className="flex items-center gap-1">
+                                <input name="sistolica" type="number" min="0" max="300"
+                                       value={form.sistolica} onChange={handle}
+                                       placeholder="120" className={inputCls} />
+                                <span className="text-gray-400 font-bold">/</span>
+                                <input name="diastolica" type="number" min="0" max="200"
+                                       value={form.diastolica} onChange={handle}
+                                       placeholder="80" className={inputCls} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-xs text-gray-400 mb-1">Observaciones</p>
+                        <textarea name="observaciones" rows={2} value={form.observaciones}
+                                  onChange={handle} placeholder="Notas adicionales..."
+                                  className={`${inputCls} resize-none`} />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+                    <button onClick={onClose}
+                            className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
+                        Cancelar
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-[#0f3460] text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all disabled:opacity-60">
+                        {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheck} />}
+                        Guardar toma
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 /* ─── Clases de inputs ───────────────────────────────────────────────────── */
@@ -159,6 +338,8 @@ export default function PatientProfileView() {
     const [data, setData]           = useState(null);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState('');
+    const [ultimoSigno, setUltimoSigno] = useState(null);
+    const [modalSignos, setModalSignos] = useState(false);
 
     /* ── Estados de edición por sección ── */
     const [editIdent,  setEditIdent]  = useState(false);
@@ -182,7 +363,9 @@ export default function PatientProfileView() {
                     clinicalRecord: res.data.clinicalRecord || null,
                     admissions:     res.data.admissions     || [],
                 });
-                // Si viene ?edit=true abrir edición de identificación
+                api.get(`/api/vitalsigns/paciente/${id}`)
+                    .then(r => setUltimoSigno(r.data[0] || null))
+                    .catch(() => {});
                 if (searchParams.get('edit') === 'true') setEditIdent(true);
             })
             .catch(() => setError('No se pudo cargar el expediente.'))
@@ -784,6 +967,73 @@ export default function PatientProfileView() {
                     </div>
                 )}
             </SectionCard>
+
+            {/* ══ SECCIÓN: Signos vitales ══ */}
+            <SectionCard icon={faHeartPulse} title="Signos vitales" defaultOpen={true}>
+                <div className="pt-4">
+                    {!ultimoSigno ? (
+                        <p className="text-xs text-gray-400 italic">Sin registros de signos vitales.</p>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
+                            {[
+                                ['Peso',   ultimoSigno.signos?.peso,                   'kg'],
+                                ['Talla',   ultimoSigno.signos?.talla,                   'cm'],
+                                ['IMC',   ultimoSigno.signos?.peso && ultimoSigno.signos?.talla ? (ultimoSigno.signos.peso / ((ultimoSigno.signos.talla / 100) ** 2)).toFixed(1) : null, 'kg/m²'],
+                                ['FC',    ultimoSigno.signos?.frecuenciaCardiaca,     'bpm'],
+                                ['PA',    ultimoSigno.signos?.presionArterial
+                                            ? `${ultimoSigno.signos.presionArterial.sistolica}/${ultimoSigno.signos.presionArterial.diastolica}`
+                                            : null,                                   'mmHg'],
+                                ['FR',    ultimoSigno.signos?.frecuenciaRespiratoria, 'rpm'],
+                                ['Temp',  ultimoSigno.signos?.temperatura,            '°C'],
+                                ['SpO₂',  ultimoSigno.signos?.saturacionOxigeno,      '%'],
+                                ['Glucosa',ultimoSigno.signos?.glucosa,               'mg/dL'],
+                                ['Dolor', ultimoSigno.signos?.dolor,                  '/10'],
+                            ].filter(([, v]) => v != null)
+                            .map(([label, value, unit]) => {
+                                const color = getVitalColor(label, value);
+
+                                return (
+                                    <div key={label} className={`rounded-xl px-4 py-3 border border-gray-100 ${color}`}>
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70 mb-0.5">
+                                            {label}
+                                        </p>
+                                        <p className="text-lg font-bold">
+                                            {value}
+                                            <span className="text-xs font-normal ml-1 opacity-70">{unit}</span>
+                                        </p>
+                                    </div>
+                                );
+
+                                
+                            })}
+                        </div>
+                    )}
+
+                    <p className="text-xs text-gray-400 mb-3">
+                        {ultimoSigno
+                            ? `Último registro: ${new Date(ultimoSigno.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                            : ''}
+                    </p>
+
+                    <button onClick={() => setModalSignos(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0f3460] text-white text-xs font-semibold hover:bg-[#0a2547] transition-all">
+                        <FontAwesomeIcon icon={faPlus} />
+                        Registrar nueva toma
+                    </button>
+                </div>
+            </SectionCard>
+
+            {/* Modal nueva toma */}
+            {modalSignos && (
+                <ModalNuevaToma
+                    pacienteId={id}
+                    onClose={() => setModalSignos(false)}
+                    onSaved={(nuevo) => {
+                        setUltimoSigno(nuevo);
+                        setModalSignos(false);
+                    }}
+                />
+            )}
 
             {/* ══ SECCIÓN 5: Ingresos (solo lectura) ══ */}
             <SectionCard icon={faHospital} title="Historial de ingresos" defaultOpen={false}>
