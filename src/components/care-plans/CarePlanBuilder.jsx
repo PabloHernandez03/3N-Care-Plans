@@ -6,6 +6,7 @@ import {
     faWalking, faBrain, faUserFriends, faShieldAlt, faProcedures, faSeedling, faBiohazard, 
     faCogs, faBookMedical 
 } from '@fortawesome/free-solid-svg-icons';
+import api from '@/utils/api';
 
 const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
     // ESTADOS
@@ -36,8 +37,8 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
     useEffect(() => {
         const fetchNandas = async () => {
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda`);
-                const data = await res.json();
+                const res = await api.get('/api/nanda');
+                const data = await res.data;
                 const agrupado = data.reduce((acc, curr) => {
                     if (!curr.dominio) return acc;
                     const domId = curr.dominio.codigo;
@@ -65,45 +66,49 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
         if (value.length < 3) return setSearchResults([]);
         setIsSearching(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/nanda/search/${value}`);
-            if (res.ok) {
-                setSearchResults(await res.json());
-                setExpandedDomain(null);
-                setExpandedClass(null);
-            }
-        } catch (error) { console.error(error); } 
-        finally { setIsSearching(false); }
+            const res = await api.get(`/api/nanda/search/${value}`);
+            setSearchResults(res.data || []);
+            setExpandedDomain(null);
+            setExpandedClass(null);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSearching(false);
+        }
     };
 
     const handleSelectNanda = async (nanda) => {
         setSelectedNanda(nanda);
-        setSearchTerm(""); setEvaluacionesNoc({}); setNicsBase([]); setNicsCalculados([]); setSelectedNics([]); 
-        
+        setSearchTerm('');
+        setEvaluacionesNoc({});
+        setNicsBase([]);
+        setNicsCalculados([]);
+        setSelectedNics([]);
+
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/noc/from-nanda/${nanda.codigo}`);
-            if (res.ok) {
-                const data = await res.json();
-                setNocsSugeridos(data.noc_sugeridos);
-            }
-            
-            const resMapa = await fetch(`${import.meta.env.VITE_API_URL}/api/diagnosis/${nanda.codigo}`);
-            if(resMapa.ok) {
-                const mapaData = await resMapa.json();
-                const codigosNic = mapaData.nic_sugeridos.map(n => n.codigo);
-                const resNic = await fetch(`${import.meta.env.VITE_API_URL}/api/nic/list`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codigos: codigosNic })
-                });
-                if(resNic.ok) {
-                    const dataNics = await resNic.json();
-                    const nicsEnriquecidos = dataNics.map(nic => {
-                        const infoMapa = mapaData.nic_sugeridos.find(n => n.codigo === nic.codigo);
-                        return { ...nic, coincidenciaBase: infoMapa?.coincidencia || 0, nocs_asociados: infoMapa?.nocs_asociados || [] };
-                    });
-                    setNicsBase(nicsEnriquecidos);
-                }
-            }
-        } catch (err) { console.error(err); }
+            const res = await api.get(`/api/noc/from-nanda/${nanda.codigo}`);
+            setNocsSugeridos(res.data?.noc_sugeridos || []);
+
+            const resMapa = await api.get(`/api/diagnosis/${nanda.codigo}`);
+            const mapaData = resMapa.data;
+            const codigosNic = mapaData.nic_sugeridos.map(n => n.codigo);
+
+            const resNic = await api.post('/api/nic/list', { codigos: codigosNic });
+            const dataNics = resNic.data;
+
+            const nicsEnriquecidos = dataNics.map(nic => {
+                const infoMapa = mapaData.nic_sugeridos.find(n => n.codigo === nic.codigo);
+                return {
+                    ...nic,
+                    coincidenciaBase: infoMapa?.coincidencia    || 0,
+                    nocs_asociados:   infoMapa?.nocs_asociados  || []
+                };
+            });
+            setNicsBase(nicsEnriquecidos);
+
+        } catch (err) {
+            console.error('Error cargando NOC/NIC:', err);
+        }
     };
 
     const handleBackToSearch = () => {
@@ -193,7 +198,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
 
         const payloadPlan = {
             pacienteId: idPacienteSeguro,
-            ingresoId: patient?.ingresoId, 
+            ingresoId: patient?.ingresoId,
             fecha: new Date().toISOString(),
             nanda: { codigo: selectedNanda.codigo, nombre: selectedNanda.nombre },
             nocsEvaluados: Object.entries(evaluacionesNoc).map(([codigo, data]) => ({
@@ -205,20 +210,11 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
         };
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadPlan)
-            });
-
-            if (response.ok) {
-                showToast("Plan de Cuidados guardado exitosamente", "success");
-                if (onCancel) onCancel(); 
-            } else {
-                const errorData = await response.json();
-                showToast(errorData.error || "Error al guardar el plan", "error");
-            }
-        } catch (error) {
-            showToast("Error de conexión al guardar el plan.", "error");
+            await api.post('/api/careplans', payloadPlan);
+            showToast("Plan de Cuidados guardado exitosamente", "success");
+            if (onCancel) onCancel();
+        } catch (err) {
+            showToast(err.response?.data?.error || "Error al guardar el plan", "error");
         }
     };
 

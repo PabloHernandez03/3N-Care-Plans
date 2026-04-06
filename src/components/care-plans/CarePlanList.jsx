@@ -5,6 +5,7 @@ import {
     faMagnifyingGlass, faTh, faList, faClock, faSortAlphaDown, faSortAlphaUpAlt, 
     faArrowUp, faArrowDown, faFolderOpen, faArchive, faBookMedical 
 } from '@fortawesome/free-solid-svg-icons';
+import api from '@/utils/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getInitials(nombre = {}) {
@@ -176,11 +177,16 @@ export default function CarePlanList({ onViewPlan, showToast, patientId }) {
         const fetchCarePlans = async () => {
             setIsLoading(true);
             try {
-                const endpoint = patientId ? `${import.meta.env.VITE_API_URL}/api/careplans/patient/${patientId}` : `${import.meta.env.VITE_API_URL}/api/careplans`;
-                const response = await fetch(endpoint);
-                if (response.ok) setAllPlans(await response.json());
-            } catch (error) { console.error("Error:", error); } 
-            finally { setIsLoading(false); }
+                const endpoint = patientId
+                    ? `/api/careplans/patient/${patientId}`
+                    : `/api/careplans`;
+                const { data } = await api.get(endpoint);
+                setAllPlans(data);
+            } catch (error) {
+                console.error("Error:", error);
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchCarePlans();
     }, [patientId]);
@@ -190,29 +196,22 @@ export default function CarePlanList({ onViewPlan, showToast, patientId }) {
         setConfirmFinalize(plan);
     };
 
-    // 🟢 Ejecutar la finalización al confirmar
+    // executeFinalizePlan
     const executeFinalizePlan = async () => {
         if (!confirmFinalize) return;
         const planId = confirmFinalize._id;
-
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/careplans/${planId}`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ estado: 'Finalizado' })
-            });
-
-            if (response.ok) {
-                setAllPlans(prev => prev.map(plan => plan._id === planId ? { ...plan, estado: 'Finalizado' } : plan));
-                showToast("Plan finalizado correctamente.", "success");
-            } else { 
-                showToast("Hubo un error al finalizar el plan.", "error"); 
-            }
-        } catch (error) { 
-            showToast("Error de conexión.", "error"); 
+            await api.put(`/api/careplans/${planId}`, { estado: 'Finalizado' });
+            setAllPlans(prev => prev.map(plan =>
+                plan._id === planId ? { ...plan, estado: 'Finalizado' } : plan
+            ));
+            showToast("Plan finalizado correctamente.", "success");
+        } catch {
+            showToast("Hubo un error al finalizar el plan.", "error");
         } finally {
-            setConfirmFinalize(null); // Cerramos el modal independientemente del resultado
+            setConfirmFinalize(null);
         }
-    };
+    }
 
     // Filtrado
     const filteredPlans = useMemo(() => {
