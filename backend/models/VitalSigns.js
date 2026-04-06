@@ -41,7 +41,10 @@ const vitalSignsSchema = new mongoose.Schema({
   fecha: {
     type: Date,
     default: Date.now
-  }
+  },
+
+  editado: { type: Boolean, default: false },
+  fechaEdicion: { type: Date }
 
 }, { timestamps: true });
 

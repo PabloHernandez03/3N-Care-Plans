@@ -5,7 +5,8 @@ import {
     faArrowLeft, faUser, faStethoscope, faBullseye, faHandHoldingMedical, faChevronDown, faChevronUp, 
     faCheckCircle, faListCheck, faChartBar, faTimes, faCakeCandles, faVenusMars, faDroplet, faIdCard, 
     faHospital, faNotesMedical, faLeaf, faPeopleRoof, faTriangleExclamation, faBed, faCalendarDay, 
-    faClock, faPrint, faCalendarAlt, faHistory, faCircleXmark
+    faClock, faPrint, faCalendarAlt, faHistory, faCircleXmark,
+    faFileMedical, faPencil
 } from '@fortawesome/free-solid-svg-icons';
 
 // ─── Utilidades Visuales y Mapeos ───────────────────────────────────────────
@@ -35,11 +36,29 @@ function getAge(fechaNacStr) {
     return edad;
 }
 
+const getVitalClass = (tipo, valor, sistolica, diastolica) => {
+    // Definimos el estilo para valores fuera de rango: Rojo estático, fondo suave y negrita.
+    const danger = "bg-red-50 text-red-700 font-black px-2 py-1 rounded-md border border-red-100";
+    const normal = "text-gray-700 font-medium";
+
+    switch (tipo) {
+        case 'fc': return (valor < 60 || valor > 100) ? danger : normal;
+        case 'temp': return (valor < 35.5 || valor > 37.8) ? danger : normal;
+        case 'spo2': return (valor < 93) ? danger : normal;
+        case 'fr': return (valor < 12 || valor > 22) ? danger : normal;
+        case 'pa': 
+            // Hipertensión o Hipotensión marcada
+            const isAbnormal = (sistolica > 140 || sistolica < 90 || diastolica > 90 || diastolica < 60);
+            return isAbnormal ? danger : normal;
+        default: return normal;
+    }
+};
+
 // ─── Sub-componentes Reutilizables de UI ──────────────────────────────────────
-const SectionCard = ({ icon, title, children, defaultOpen = true, titleColor = "text-[#0f3460]", count = null }) => {
+const SectionCard = ({ icon, title, children, defaultOpen = true, titleColor = "text-[#0f3460]", count = null, avoidBreak = true }) => {
     const [open, setOpen] = useState(defaultOpen);
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-5 print:mb-3 print:border-gray-300 print:shadow-none print:break-inside-avoid">
+        <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-5 print:mb-3 print:border-gray-300 print:shadow-none ${avoidBreak ? 'print:break-inside-avoid' : 'print:break-inside-auto'}`}>
             <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-5 py-4 md:px-6 print:py-2.5 print:px-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#16a09e] flex items-center justify-center text-white text-sm shrink-0 shadow-sm print:shadow-none print:w-6 print:h-6 print:text-xs">
@@ -112,6 +131,13 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
         frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
         glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
     });
+
+    const [nuevaNota, setNuevaNota] = useState('');
+    const [enviandoNota, setEnviandoNota] = useState(false);
+
+    const [editingSignoId, setEditingSignoId] = useState(null);
+
+    const [confirmandoActividad, setConfirmandoActividad] = useState(null); // { nicCodigo, descripcion, estadoActual }
 
     useEffect(() => {
         const fetchData = async () => {
@@ -194,38 +220,103 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
 
     const handleGuardarSigno = async () => {
         setSavingSigno(true);
+        const payload = {
+            pacienteId: planData.pacienteId._id,
+            signos: {
+                frecuenciaCardiaca: formSigno.frecuenciaCardiaca ? Number(formSigno.frecuenciaCardiaca) : undefined,
+                presionArterial: (formSigno.sistolica || formSigno.diastolica) ? {
+                    sistolica: Number(formSigno.sistolica),
+                    diastolica: Number(formSigno.diastolica),
+                } : undefined,
+                frecuenciaRespiratoria: formSigno.frecuenciaRespiratoria ? Number(formSigno.frecuenciaRespiratoria) : undefined,
+                temperatura: formSigno.temperatura ? Number(formSigno.temperatura) : undefined,
+                saturacionOxigeno: formSigno.saturacionOxigeno ? Number(formSigno.saturacionOxigeno) : undefined,
+                glucosa: formSigno.glucosa ? Number(formSigno.glucosa) : undefined,
+                peso: formSigno.peso ? Number(formSigno.peso) : undefined,
+                talla: formSigno.talla ? Number(formSigno.talla) : undefined,
+                dolor: formSigno.dolor ? Number(formSigno.dolor) : undefined,
+            },
+            observaciones: formSigno.observaciones,
+        };
+
         try {
-            const { data } = await api.post('/api/vitalsigns', {
-                pacienteId: planData.pacienteId._id,
-                signos: {
-                    frecuenciaCardiaca:     formSigno.frecuenciaCardiaca     ? Number(formSigno.frecuenciaCardiaca)     : undefined,
-                    presionArterial: (formSigno.sistolica || formSigno.diastolica) ? {
-                        sistolica:  formSigno.sistolica  ? Number(formSigno.sistolica)  : undefined,
-                        diastolica: formSigno.diastolica ? Number(formSigno.diastolica) : undefined,
-                    } : undefined,
-                    frecuenciaRespiratoria: formSigno.frecuenciaRespiratoria ? Number(formSigno.frecuenciaRespiratoria) : undefined,
-                    temperatura:            formSigno.temperatura            ? Number(formSigno.temperatura)            : undefined,
-                    saturacionOxigeno:      formSigno.saturacionOxigeno      ? Number(formSigno.saturacionOxigeno)      : undefined,
-                    glucosa:                formSigno.glucosa                ? Number(formSigno.glucosa)                : undefined,
-                    peso:                   formSigno.peso                   ? Number(formSigno.peso)                   : undefined,
-                    talla:                  formSigno.talla                  ? Number(formSigno.talla)                  : undefined,
-                    dolor:                  formSigno.dolor                  ? Number(formSigno.dolor)                  : undefined,
-                },
-                observaciones: formSigno.observaciones,
-            });
-            setSignosVitales(prev => [data, ...prev]);
+            if (editingSignoId) {
+                // EDITAR
+                const { data } = await api.put(`/api/vitalsigns/${editingSignoId}`, payload);
+                setSignosVitales(prev => prev.map(s => s._id === editingSignoId ? data : s));
+                showToast('Registro actualizado', 'success');
+            } else {
+                // CREAR NUEVO
+                const { data } = await api.post('/api/vitalsigns', payload);
+                setSignosVitales(prev => [data, ...prev]);
+                showToast('Signos registrados', 'success');
+            }
+            
+            // Resetear todo
             setModalSignos(false);
-            setFormSigno({
-                frecuenciaCardiaca: '', sistolica: '', diastolica: '',
-                frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
-                glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
-            });
-            if (showToast) showToast('Signos vitales registrados', 'success');
+            setEditingSignoId(null);
+            setFormSigno({ /* ... resetear campos vacíos ... */ });
         } catch {
-            if (showToast) showToast('Error al guardar signos vitales', 'error');
+            showToast('Error al procesar solicitud', 'error');
         } finally {
             setSavingSigno(false);
         }
+    };
+
+    const handleToggleActividad = async (nicCodigo, descripcion, estadoActual) => {
+        setConfirmandoActividad({ nicCodigo, descripcion, estadoActual });
+    };
+
+    const ejecutarCambioActividad = async () => {
+        const { nicCodigo, descripcion, estadoActual } = confirmandoActividad;
+        try {
+            const res = await api.patch(`/api/careplans/${planData._id}/actividad`, {
+                nicCodigo,
+                descripcionActividad: descripcion,
+                realizado: !estadoActual
+            });
+            setPlanData(res.data);
+            showToast(estadoActual ? "Registro revertido" : "Actividad registrada", "success");
+        } catch (error) {
+            showToast("Error en el servidor", "error");
+        } finally {
+            setConfirmandoActividad(null);
+        }
+    };
+
+    const handleAddNota = async () => {
+        if (!nuevaNota.trim()) return;
+        setEnviandoNota(true);
+        try {
+            const res = await api.post(`/api/careplans/${planData._id}/notas`, {
+                nota: nuevaNota
+            });
+            setPlanData(res.data);
+            setNuevaNota(""); // Limpiar el campo
+            showToast("Nota guardada correctamente", "success");
+        } catch (error) {
+            showToast("Error al guardar nota", "error");
+        } finally {
+            setEnviandoNota(false);
+        }
+    };
+
+    const handleEditSigno = (sv) => {
+        setEditingSignoId(sv._id);
+        setFormSigno({
+            frecuenciaCardiaca: sv.signos?.frecuenciaCardiaca || '',
+            sistolica: sv.signos?.presionArterial?.sistolica || '',
+            diastolica: sv.signos?.presionArterial?.diastolica || '',
+            frecuenciaRespiratoria: sv.signos?.frecuenciaRespiratoria || '',
+            temperatura: sv.signos?.temperatura || '',
+            saturacionOxigeno: sv.signos?.saturacionOxigeno || '',
+            glucosa: sv.signos?.glucosa || '',
+            peso: sv.signos?.peso || '',
+            talla: sv.signos?.talla || '',
+            dolor: sv.signos?.dolor || '',
+            observaciones: sv.observaciones || ''
+        });
+        setModalSignos(true);
     };
 
     const handlePrintPlan = () => {
@@ -341,12 +432,12 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
             </SectionCard>
 
             {/* NICs */}
-            <SectionCard icon={faHandHoldingMedical} title="Intervenciones de Enfermería (NIC)" titleColor="text-[#16a09e]">
-                <div className="grid grid-cols-1 gap-4 pt-1 print:gap-3">
+            <SectionCard icon={faHandHoldingMedical} title="Intervenciones de Enfermería (NIC)" titleColor="text-[#16a09e]" avoidBreak={false}>
+            <div className="grid grid-cols-1 gap-4 pt-1 print:gap-3">
                     {planData.nicsSeleccionados?.map((nic, idx) => {
                         const isOpen = !!nicActivities[nic.codigo];
                         return (
-                            <div key={idx} className={`border rounded-2xl overflow-hidden transition-all print:break-inside-avoid print:border-gray-300 print:shadow-none print:rounded-xl ${isOpen ? 'border-[#16a09e]/40 shadow-md bg-white' : 'border-gray-100'}`}>
+                            <div key={idx} className={`border rounded-2xl overflow-hidden transition-all print:border-gray-300 print:shadow-none print:rounded-xl ${isOpen ? 'border-[#16a09e]/40 shadow-md bg-white' : 'border-gray-100'}`}>
                                 <div className="bg-white p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:p-3">
                                     <div className="flex items-center gap-3 min-w-0 flex-1">
                                         <FontAwesomeIcon icon={faCheckCircle} className="text-[#16a09e] text-sm print:hidden" />
@@ -359,10 +450,45 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                                 </div>
                                 <div className={`bg-gray-50/50 p-5 border-t border-gray-100 print:p-3 print:pt-2 print:bg-white print:border-gray-200 ${isOpen ? '' : 'hidden print:block'}`}>
                                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 print:mb-1 print:text-[9px]">Actividades de enfermería:</p>
-                                    <ul className="list-disc pl-5 space-y-2.5 text-sm text-gray-700 font-medium leading-snug print:space-y-1 print:text-xs">
-                                        {nicActivities[nic.codigo]?.map((act, i) => <li key={i}>{act}</li>)}
-                                        {(!nicActivities[nic.codigo] || nicActivities[nic.codigo].length === 0) && <li className="text-gray-400 italic list-none">Detalles omitidos (cargando...)</li>}
-                                    </ul>
+                                        <ul className="list-none pl-0 space-y-3 text-sm print:text-xs text-gray-700 font-medium">
+                                            {nicActivities[nic.codigo]?.map((actDesc, i) => {
+                                                // Buscamos si la actividad ya está registrada como realizada en el planData
+                                                const actividadData = planData.nicsSeleccionados
+                                                    .find(n => n.codigo === nic.codigo)?.actividades
+                                                    ?.find(a => a.descripcion === actDesc);
+                                                
+                                                const isRealizada = actividadData?.realizado || false;
+
+                                                return (
+                                                    <li key={i} 
+                                                        onClick={() => handleToggleActividad(nic.codigo, actDesc, isRealizada)}
+                                                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                                            isRealizada ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 hover:border-[#16a09e]'
+                                                        }`}>
+                                                        <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 ${
+                                                            isRealizada ? 'bg-[#16a09e] border-[#16a09e] text-white' : 'border-gray-300 bg-white'
+                                                        }`}>
+                                                            {isRealizada && <FontAwesomeIcon icon={faCheckCircle} className="text-[10px]" />}
+                                                        </div>
+                                                        <div>
+                                                            <span className={isRealizada ? 'line-through text-gray-400' : 'text-gray-700'}>
+                                                                {actDesc}
+                                                            </span>
+                                                            {isRealizada && actividadData.fechaRealizacion && (
+                                                                <p className="text-[9px] text-green-600 font-bold uppercase mt-1">
+                                                                Realizado: {new Date(actividadData.fechaRealizacion).toLocaleString('es-MX', {
+                                                                    day: '2-digit',
+                                                                    month: 'short',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
                                 </div>
                             </div>
                         );
@@ -373,8 +499,7 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
             {/* ══ SECCIÓN: SIGNOS VITALES ══ */}
             <SectionCard icon={faChartBar} title="Signos Vitales" titleColor="text-[#16a09e]" count={signosVitales.length}>
                 <div className="pt-2">
-
-                    {/* Botón nueva toma */}
+                    {/* Botón nueva toma (Oculto en print) */}
                     {planData.estado === 'Activo' && (
                         <button onClick={() => setModalSignos(true)}
                                 className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2547] transition-all print:hidden">
@@ -383,60 +508,156 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                     )}
 
                     {signosVitales.length === 0 ? (
-                        <p className="text-xs text-gray-400 italic">Sin registros de signos vitales.</p>
+                        <p className="text-xs text-gray-400 italic">Sin registros.</p>
                     ) : (
-                        <div className="overflow-x-auto rounded-xl border border-gray-100">
-                            <table className="w-full text-xs min-w-[700px]">
+                        <div className="overflow-x-auto print:overflow-visible rounded-xl border border-gray-100">
+                            <table className="w-full text-xs min-w-[800px] print:min-w-full">
                                 <thead>
-                                    <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wide text-[10px]">
-                                        <th className="px-4 py-3 text-left">Fecha</th>
-                                        <th className="px-4 py-3 text-center">FC (bpm)</th>
-                                        <th className="px-4 py-3 text-center">PA (mmHg)</th>
-                                        <th className="px-4 py-3 text-center">FR (rpm)</th>
-                                        <th className="px-4 py-3 text-center">Temp (°C)</th>
-                                        <th className="px-4 py-3 text-center">SpO₂ (%)</th>
-                                        <th className="px-4 py-3 text-center">Glucosa</th>
-                                        <th className="px-4 py-3 text-center">Dolor</th>
-                                        <th className="px-4 py-3 text-center">Peso (kg)</th>
+                                    <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wide text-[10px] print:text-black print:border-b">
+                                        <th className="px-4 py-3 text-left">Fecha / Hora</th>
+                                        <th className="px-2 py-3 text-center">FC</th>
+                                        <th className="px-2 py-3 text-center">PA (S/D)</th>
+                                        <th className="px-2 py-3 text-center">FR</th>
+                                        <th className="px-2 py-3 text-center">Temp</th>
+                                        <th className="px-2 py-3 text-center">SpO₂</th>
+                                        <th className="px-2 py-3 text-center">Glucosa</th>
+                                        <th className="px-2 py-3 text-center">Dolor</th>
+                                        <th className="px-4 py-3 text-center print:hidden">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {signosVitales.map((sv, i) => (
-                                        <tr key={sv._id || i} className={`transition-colors ${i === 0 ? 'bg-[#16a09e]/5 font-semibold' : 'bg-white hover:bg-gray-50'}`}>
-                                            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                                                {i === 0 && <span className="mr-1.5 text-[9px] bg-[#16a09e] text-white px-1.5 py-0.5 rounded font-bold uppercase">Último</span>}
-                                                {new Date(sv.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                <span className="text-gray-400 ml-1 text-[10px]">
-                                                    {new Date(sv.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.frecuenciaCardiaca ?? '—'}</td>
-                                            <td className="px-4 py-3 text-center text-gray-700">
-                                                {sv.signos?.presionArterial
-                                                    ? `${sv.signos.presionArterial.sistolica ?? '?'}/${sv.signos.presionArterial.diastolica ?? '?'}`
-                                                    : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.frecuenciaRespiratoria ?? '—'}</td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.temperatura ?? '—'}</td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.saturacionOxigeno ?? '—'}</td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.glucosa ?? '—'}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                {sv.signos?.dolor != null ? (
-                                                    <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                                        sv.signos.dolor <= 3 ? 'bg-green-100 text-green-700'
-                                                        : sv.signos.dolor <= 6 ? 'bg-amber-100 text-amber-700'
-                                                        : 'bg-red-100 text-red-700'}`}>
-                                                        {sv.signos.dolor}/10
+                                    <tbody className="divide-y divide-gray-50">
+                                        {signosVitales.map((sv, i) => (
+                                            <tr key={sv._id || i} className={`transition-colors print:break-inside-avoid ${i === 0 ? 'bg-[#16a09e]/5' : 'bg-white hover:bg-gray-50'}`}>
+                                                <td className="px-4 py-4 text-gray-600 whitespace-nowrap">
+                                                    <div className="font-bold text-gray-800 flex items-center">
+                                                        {new Date(sv.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                                                        {sv.editado && <span className="text-amber-500 ml-1 text-xs" title="Editado corregido">
+                                                            <FontAwesomeIcon icon={faPencil} />    
+                                                        </span>}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400">
+                                                        {new Date(sv.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </td>
+                                                
+                                                {/* Celdas con badges estáticos si están fuera de rango */}
+                                                <td className="px-2 py-4 text-center">
+                                                    <span className={getVitalClass('fc', sv.signos?.frecuenciaCardiaca)}>
+                                                        {sv.signos?.frecuenciaCardiaca || '—'}
                                                     </span>
-                                                ) : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.peso ?? '—'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
+                                                </td>
+                                                <td className="px-2 py-4 text-center">
+                                                    <span className={getVitalClass('pa', null, sv.signos?.presionArterial?.sistolica, sv.signos?.presionArterial?.diastolica)}>
+                                                        {sv.signos?.presionArterial ? `${sv.signos.presionArterial.sistolica}/${sv.signos.presionArterial.diastolica}` : '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-4 text-center">
+                                                    <span className={getVitalClass('fr', sv.signos?.frecuenciaRespiratoria)}>
+                                                        {sv.signos?.frecuenciaRespiratoria || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-4 text-center">
+                                                    <span className={getVitalClass('temp', sv.signos?.temperatura)}>
+                                                        {sv.signos?.temperatura ? `${sv.signos.temperatura}°C` : '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-4 text-center">
+                                                    <span className={getVitalClass('spo2', sv.signos?.saturacionOxigeno)}>
+                                                        {sv.signos?.saturacionOxigeno ? `${sv.signos.saturacionOxigeno}%` : '—'}
+                                                    </span>
+                                                </td>
+                                                
+                                                <td className="px-2 py-4 text-center text-gray-700 font-medium">
+                                                    {sv.signos?.glucosa || '—'}
+                                                </td>
+
+                                                <td className="px-2 py-4 text-center">
+                                                    {sv.signos?.dolor != null ? (
+                                                        <span className={`px-2 py-1 rounded-md font-black text-[10px] ${sv.signos.dolor > 7 ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600'}`}>
+                                                            {sv.signos.dolor}/10
+                                                        </span>
+                                                    ) : '—'}
+                                                </td>
+
+                                                <td className="px-4 py-4 text-center print:hidden">
+                                                    <button 
+                                                        onClick={() => handleEditSigno(sv)}
+                                                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#16a09e] hover:bg-[#16a09e]/10 rounded-full transition-all"
+                                                    >
+                                                        <FontAwesomeIcon icon={faStethoscope} className="text-xs" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                             </table>
                         </div>
                     )}
+                </div>
+            </SectionCard>
+
+            {/* ══ SECCIÓN: NOTAS DE ENFERMERÍA ══ */}
+            <SectionCard 
+                icon={faNotesMedical} 
+                title="Notas de Evolución y Observaciones" 
+                titleColor="text-[#16a09e]"
+                count={planData.notasEnfermeria?.length}
+            >
+                <div className="space-y-6 pt-2">
+                    {/* Input de Nueva Nota: Estilo similar a tu Modal de Signos */}
+                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 print:hidden">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                            Registrar nueva observación del turno
+                        </p>
+                        <textarea
+                            value={nuevaNota}
+                            onChange={(e) => setNuevaNota(e.target.value)}
+                            className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/10 transition-all resize-none"
+                            placeholder="Ej: Paciente refiere mejoría en el dolor tras administración de analgésico..."
+                            rows="3"
+                        />
+                        <div className="flex justify-end mt-3">
+                            <button
+                                onClick={handleAddNota}
+                                disabled={enviandoNota || !nuevaNota.trim()}
+                                className="px-6 py-2.5 rounded-xl bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2547] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <FontAwesomeIcon icon={faCheckCircle} />
+                                {enviandoNota ? "Guardando..." : "Guardar Nota"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Listado de Notas: Estilo similar a tu Historial NOC */}
+                    <div className="space-y-4 print:space-y-3">
+                        {planData.notasEnfermeria?.length > 0 ? (
+                            [...planData.notasEnfermeria].reverse().map((n, idx) => (
+                                <div key={idx} className="border-l-4 border-[#16a09e] bg-white rounded-r-2xl p-4 shadow-sm border-y border-r-2 print:shadow-none print:border-gray-300 print:break-inside-avoid">
+                                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-[#0f3460] bg-gray-100 px-2 py-0.5 rounded uppercase">
+                                                {new Date(n.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                                            </span>
+                                            <span className="text-[10px] font-medium text-gray-400">
+                                                {new Date(n.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-gray-500">
+                                            <FontAwesomeIcon icon={faUser} className="text-[10px]" />
+                                            <span className="text-[10px] font-bold uppercase tracking-tight">
+                                                {n.enfermeroId?.identidad?.nombre || 'Enfermero'} {n.enfermeroId?.identidad?.apellido_paterno || '' }
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-gray-700 leading-relaxed font-medium">
+                                        {n.nota}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-xs text-gray-400 italic text-center py-4">No hay notas de evolución registradas.</p>
+                        )}
+                    </div>
                 </div>
             </SectionCard>
 
@@ -498,6 +719,8 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                     </div>
                 </SectionCard>
             )}
+
+
 
             {/* ══ SECCIÓN II: INGRESO VINCULADO ══ */}
             <SectionCard icon={faHospital} title="Datos del Ingreso Vinculado" defaultOpen={false}>
@@ -615,6 +838,27 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                     </div>
                 </SectionCard>
             </div>
+
+            {/* Sección de Firmas mejorada para impresión */}
+            <div className="hidden print:block pt-16 mt-10 border-t border-gray-400">
+                <div className="flex justify-between items-start">
+                    <div className="text-center w-5/12">
+                        <div className="border-b border-gray-300 mb-2 h-12"></div> {/* Espacio para la firma física */}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                            Enfermero(a) en turno
+                        </p>
+                        <p className="text-[9px] text-gray-400 font-medium">Nombre y Cédula</p>
+                    </div>
+                    
+                    <div className="text-center w-5/12">
+                        <div className="border-b border-gray-300 mb-2 h-12"></div> {/* Espacio para la firma física */}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                            Firma de recibido
+                        </p>
+                        <p className="text-[9px] text-gray-400 font-medium">Sello de la Institución</p>
+                    </div>
+                </div>
+            </div>
             
             {evaluatingNoc && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm animate-fade-in print:hidden">
@@ -625,7 +869,10 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                                 <span className="bg-white/10 px-3 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase mb-2 inline-block">Actualizar Evaluación</span>
                                 <h3 className="text-xl md:text-2xl font-bold leading-tight truncate">{evaluatingNoc.nombre}</h3>
                             </div>
-                            <button onClick={() => { setEvaluatingNoc(null); setCurrentScores({}); }} className="text-white/50 hover:text-white bg-white/5 hover:bg-white/20 w-10 h-10 rounded-full transition-colors flex items-center justify-center shrink-0">
+                            <button 
+                            onClick={() => { setEvaluatingNoc(null); setCurrentScores({}); }} 
+                            className="relative z-20 text-white/50 hover:text-white bg-white/5 hover:bg-white/20 w-10 h-10 rounded-full transition-colors flex items-center justify-center shrink-0"
+                            >
                                 <FontAwesomeIcon icon={faTimes} />
                             </button>
                         </div>
@@ -680,7 +927,9 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                         onClick={e => e.stopPropagation()}>
 
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                            <h2 className="font-semibold text-gray-800">Nueva toma de signos vitales</h2>
+                            <h2 className="font-semibold text-gray-800">
+                                {editingSignoId ? 'Corregir toma de signos' : 'Nueva toma de signos vitales'}
+                            </h2>
                             <button onClick={() => setModalSignos(false)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
                                 <FontAwesomeIcon icon={faTimes} />
                             </button>
@@ -743,6 +992,39 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                     </div>
                 </div>
             )}
+
+            {confirmandoActividad && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:hidden">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 text-center">
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmandoActividad.estadoActual ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
+                                <FontAwesomeIcon icon={confirmandoActividad.estadoActual ? faTriangleExclamation : faCheckCircle} className="text-2xl" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">
+                                {confirmandoActividad.estadoActual ? '¿Revertir actividad?' : '¿Confirmar ejecución?'}
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-6 italic">
+                                "{confirmandoActividad.descripcion}"
+                            </p>
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setConfirmandoActividad(null)}
+                                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={ejecutarCambioActividad}
+                                    className={`flex-1 px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition-all ${confirmandoActividad.estadoActual ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#16a09e] hover:bg-[#128a88]'}`}
+                                >
+                                    {confirmandoActividad.estadoActual ? 'Sí, revertir' : 'Sí, realizado'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}            
+
         </div>
     );
 }

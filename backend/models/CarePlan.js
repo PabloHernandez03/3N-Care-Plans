@@ -45,11 +45,22 @@ const carePlanSchema = new mongoose.Schema({
           fecha:       { type: Date, default: Date.now }
       }]
   }],
-  // ── NIC ────────────────────────────────────────────────
-  nicsSeleccionados: [{
-    codigo: String,
-    nombre: String
-  }],
+nicsSeleccionados: [{
+  codigo: String,
+  nombre: String,
+  actividades: [{
+    descripcion: String,
+    realizado: { type: Boolean, default: false },
+    fechaRealizacion: Date,
+    enfermeroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Enfermero' }
+  }]
+}],
+
+notasEnfermeria: [{
+  fecha: { type: Date, default: Date.now },
+  nota: String,
+  enfermeroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Enfermero' }
+}],
 
   estado: { type: String, enum: ['Activo', 'Completado', 'Cancelado'], default: "Activo" }
 
