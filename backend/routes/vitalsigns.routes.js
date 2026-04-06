@@ -44,4 +44,30 @@ router.get("/paciente/:id", async (req, res) => {
   }
 });
 
+router.put("/:id", async (req, res) => {
+    try {
+        // ERROR AQUÍ: Era VitalSigns (con s)
+        const signoActualizado = await VitalSigns.findByIdAndUpdate(
+            req.params.id,
+            { 
+                signos: req.body.signos, 
+                observaciones: req.body.observaciones,
+                // IMPORTANTE: Agregamos estos campos al esquema si quieres usarlos
+                editado: true, 
+                fechaEdicion: new Date()
+            },
+            { new: true }
+        );
+        
+        if (!signoActualizado) {
+            return res.status(404).json({ error: "Registro no encontrado" });
+        }
+
+        res.json(signoActualizado);
+    } catch (error) {
+        console.error("Error en PUT /vitalsigns:", error);
+        res.status(500).json({ error: "Error al actualizar signos vitales" });
+    }
+});
+
 export default router;
