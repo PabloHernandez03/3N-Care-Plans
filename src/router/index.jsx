@@ -11,36 +11,45 @@ import DictionaryView from '../views/DictionaryView.jsx';
 import AdminDashboardView from '../views/AdminDashboardView.jsx';
 import TeamView from '../views/TeamView.jsx';
 
+// Componentes de Protección
 import ProtegerRutas from '../components/auth/ProtegerRutas.jsx';
-
+import EnfermeroRoute from '../components/auth/EnfermeroRoute.jsx';
+import JefeRoute from '../components/auth/JefeRoute.jsx';
 import AdminRoute from '../components/auth/AdminRoute.jsx'; 
 
 export default function Router() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Ruta pública */}
+                {/* --- ZONA PÚBLICA --- */}
                 <Route path="/" element={<Login />} />
                 <Route path="/register" element={<RegisterView />} />
 
-                {/* Vistas privadas con ProtegerRutas */}
+                {/* --- CAPA PRIVADA (Requiere Login) --- */}
                 <Route element={<ProtegerRutas />}>
                     <Route element={<AppLayout />}>
                         
-                        {/* RUTAS COMPARTIDAS (Enfermeros y Admins) */}
-                        <Route path="/dashboard" element={<DashboardView />} />
-                        <Route path="/patients" element={<PatientsView />} />
-                        <Route path="/patients/:id" element={<PatientProfileView />} />
-                        <Route path="/care-plans" element={<CarePlansView />} />
-                        <Route path="/profile" element={<ProfileView />} />
-                        <Route path="/dictionary" element={<DictionaryView />} />
-                        <Route path="/team" element={<TeamView />} />
+                        {/* Vistas para Enfermeros */}
+                        <Route element={<EnfermeroRoute />}>
+                            <Route path="/dashboard" element={<DashboardView />} />
+                            <Route path="/patients" element={<PatientsView />} />
+                            <Route path="/patients/:id" element={<PatientProfileView />} />
+                            <Route path="/care-plans" element={<CarePlansView />} />
+                            <Route path="/dictionary" element={<DictionaryView />} />
+                        </Route>
 
+                        {/* Vistas de Jefe de enfermeria */}
+                        <Route element={<JefeRoute />}>
+                            <Route path="/team" element={<TeamView />} />
+                        </Route>
 
-                        {/* RUTAS EXCLUSIVAS DE ADMIN */}
+                        {/*Vistas de Administrador*/}
                         <Route element={<AdminRoute />}>
                             <Route path="/admin-dashboard" element={<AdminDashboardView />} />
                         </Route>
+
+                        {/* Vista para todos */}
+                        <Route path="/profile" element={<ProfileView />} />
 
                     </Route>
                 </Route>

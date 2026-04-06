@@ -14,8 +14,10 @@ export default function NavMenu() {
     const user = storedUser ? JSON.parse(storedUser) : null;
     const rol  = user?.cuenta?.rol || 'enfermero';
 
-    const esJefeOAdmin = rol === 'jefe' || rol === 'superadmin';
-    const esEnfermero  = rol === 'enfermero';
+    // ACL CORREGIDA: Marcus es 'admin', no 'superadmin'
+    const esAdmin = rol === 'admin';
+    const esJefe  = rol === 'jefe';
+    const esEnfermero = rol === 'enfermero';
 
     const handleClick = (option) => {
         setActive(option);
@@ -37,7 +39,7 @@ export default function NavMenu() {
 
     const NavItem = ({ to, icon, label }) => (
         <NavLink to={to} className={({ isActive }) => getNavLinkClass(isActive)}
-                 title={label} onClick={() => handleClick(to)}>
+                  title={label} onClick={() => handleClick(to)}>
             <span className="flex justify-center items-center w-8 h-8">
                 <FontAwesomeIcon size="lg" icon={icon} />
             </span>
@@ -55,23 +57,30 @@ export default function NavMenu() {
     return (
         <nav className="flex gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:p-4 max-lg:shadow-lg">
 
-            {/* Rutas compartidas por todos */}
-            <NavItem to="/dashboard"   icon={faHome}          label="Dashboard"  />
-            <NavItem to="/patients"    icon={faUser}          label="Pacientes"  />
-            <NavItem to="/care-plans"  icon={faClipboardList} label="Planes"     />
-            <NavItem to="/dictionary"  icon={faBook}          label="Diccionario"/>
+            {/* --- VISTA PARA ENFERMEROS Y JEFES --- */}
+            {(esEnfermero) && (
+                <>
+                    <NavItem to="/dashboard"   icon={faHome}          label="Dashboard"  />
+                    <NavItem to="/patients"    icon={faUser}          label="Pacientes"  />
+                    <NavItem to="/care-plans"  icon={faClipboardList} label="Planes"     />
+                    <NavItem to="/dictionary"  icon={faBook}          label="Diccionario"/>
+                </>
+            )}
 
-            {/* Solo jefe y superadmin */}
-            {esJefeOAdmin && (
+            {/* --- VISTA PARA JEFE (Gestionar su equipo) --- */}
+            {esJefe && (
                 <NavItem to="/team" icon={faUsers} label="Equipo" />
             )}
 
-            {/* Solo superadmin */}
-            {rol === 'superadmin' && (
-                <NavItem to="/admin-dashboard" icon={faUserShield} label="Admin" />
+            {/* --- VISTA EXCLUSIVA PARA ADMIN (Marcus Fenix) --- */}
+            {esAdmin && (
+                <>
+                    <NavItem to="/admin-dashboard" icon={faUserShield} label="Admin" />
+                    <NavItem to="/team" icon={faUsers} label="Personal" />
+                </>
             )}
 
-            {/* Perfil — todos */}
+            {/* Perfil — Disponible para todos */}
             <NavItem to="/profile" icon={faUserCircle} label="Perfil" />
         </nav>
     );

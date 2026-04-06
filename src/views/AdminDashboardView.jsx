@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import api from '@/utils/api';
+import axios from 'axios';
+import api from '@/utils/api'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, faUserCheck, faUserXmark, 
-    faSpinner, faUserPlus 
+    faSpinner, faUserPlus, faShieldHalved
 } from '@fortawesome/free-solid-svg-icons';
 
 const Card = ({ children, className = '' }) => (
@@ -21,11 +22,11 @@ const SectionHeader = ({ icon, title, colorClass = "bg-[#0f3460]" }) => (
     </div>
 );
 
-function StatCard({ icon, label, value, sub, color }) {
+function StatCard({ icon, label, value, color }) {
     const colors = {
-        blue:   { bg: 'bg-blue-50',   icon: 'text-blue-600',   val: 'text-blue-700'   },
-        green:  { bg: 'bg-green-50',  icon: 'text-green-600',  val: 'text-green-700'  },
-        red:    { bg: 'bg-red-50',    icon: 'text-red-600',    val: 'text-red-700'    },
+        blue:  { bg: 'bg-blue-50',   icon: 'text-blue-600',   val: 'text-blue-700'   },
+        green: { bg: 'bg-green-50',  icon: 'text-green-600',  val: 'text-green-700'  },
+        red:   { bg: 'bg-red-50',    icon: 'text-red-600',    val: 'text-red-700'    },
     };
     const c = colors[color] || colors.blue;
     return (
@@ -36,7 +37,6 @@ function StatCard({ icon, label, value, sub, color }) {
             <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">{label}</p>
                 <p className={`text-2xl font-bold ${c.val} leading-tight`}>{value}</p>
-                {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
             </div>
         </Card>
     );
@@ -59,12 +59,12 @@ const StaffTable = ({ data, emptyMessage, statusColor }) => (
                     data.map(enf => (
                         <tr key={enf._id} className="text-sm hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-2">
-                                <p className="font-bold text-gray-700">{enf.identidad.nombre} {enf.identidad.apellido_paterno}</p>
-                                <p className="text-[10px] text-gray-400 uppercase">{enf.identidad.cedula_profesional}</p>
+                                <p className="font-bold text-gray-700">{enf.identidad?.nombre} {enf.identidad?.apellido_paterno}</p>
+                                <p className="text-[10px] text-gray-400 uppercase">{enf.identidad?.cedula_profesional || 'SIN CÉDULA'}</p>
                             </td>
                             <td className="py-3 px-2">
-                                <p className="text-xs text-gray-600">{enf.datos_laborales.area_asignada}</p>
-                                <p className="text-[10px] font-bold text-blue-500 uppercase">{enf.datos_laborales.turno}</p>
+                                <p className="text-xs text-gray-600">{enf.datos_laborales?.area_asignada || 'No asignada'}</p>
+                                <p className="text-[10px] font-bold text-blue-500 uppercase">{enf.datos_laborales?.turno || 'N/A'}</p>
                             </td>
                             <td className="py-3 px-2 text-right">
                                 <button className={`text-xs font-bold hover:underline ${statusColor}`}>
@@ -82,71 +82,80 @@ const StaffTable = ({ data, emptyMessage, statusColor }) => (
 export default function AdminDashboardView() {
     const [enfermeros, setEnfermeros] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const api = import.meta.env.VITE_API_URL;
-        axios.get(`${api}/api/enfermero/todos`)
-            .then(res => setEnfermeros(res.data || []))
-            .catch(err => console.error("Error obteniendo personal:", err))
-            .finally(() => setLoading(false));
+        api.get('/api/enfermero/todos')
+            .then(res => {
+                setEnfermeros(res.data || []);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error("Error en el Dashboard de Admin:", err);
+                setError("No se pudieron cargar los datos del personal.");
+                setLoading(false);
+            });
     }, []);
 
     const { activos, inactivos } = useMemo(() => {
         return {
-            activos: enfermeros.filter(e => e.datos_laborales?.esta_activo === true),
-            inactivos: enfermeros.filter(e => e.datos_laborales?.esta_activo === false)
+            activos: enfermeros.filter(e => e.cuenta?.estado_cuenta === 'activo'),
+            inactivos: enfermeros.filter(e => e.cuenta?.estado_cuenta !== 'activo')
         };
     }, [enfermeros]);
 
     if (loading) return (
-        <div className="flex items-center justify-center h-screen text-gray-400 bg-gray-50">
+        <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-400">
             <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mr-3" />
-            <span className="text-sm font-semibold uppercase tracking-widest">Cargando panel de control...</span>
+            <span className="text-sm font-semibold uppercase tracking-widest">Cargando Panel Administrativo...</span>
+        </div>
+    );
+
+    if (error) return (
+        <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-red-500 p-4 text-center">
+            <FontAwesomeIcon icon={faShieldHalved} className="text-4xl mb-4 opacity-20" />
+            <p className="font-bold">Error de Acceso</p>
+            <p className="text-sm text-gray-500">{error}</p>
         </div>
     );
 
     return (
         <div className="p-6 space-y-8 bg-gray-50 min-h-screen pb-20">
-
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Administración de Personal</h1>
-                    <p className="text-sm text-gray-400">Control de accesos y estatus laboral</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Panel de Administración</h1>
+                    <p className="text-sm text-gray-400">Marcus Fenix | Control de Personal Hospitalario</p>
                 </div>
                 <button className="bg-[#0f3460] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:bg-blue-900 transition-all flex items-center justify-center gap-2">
                     <FontAwesomeIcon icon={faUserPlus} />
-                    Registrar Enfermero
+                    Alta de Personal
                 </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard icon={faUsers} label="Total Registrados" value={enfermeros.length} color="blue" />
-                <StatCard icon={faUserCheck} label="Personal Activo" value={activos.length} color="green" />
-                <StatCard icon={faUserXmark} label="Personal Inactivo" value={inactivos.length} color="red" />
+                <StatCard icon={faUsers} label="Total Personal" value={enfermeros.length} color="blue" />
+                <StatCard icon={faUserCheck} label="Cuentas Activas" value={activos.length} color="green" />
+                <StatCard icon={faUserXmark} label="Cuentas Inactivas" value={inactivos.length} color="red" />
             </div>
 
             <div className="grid grid-cols-1 gap-6">
-                
-                {/* PERSONAL ACTIVO */}
                 <Card className="p-6 border-l-4 border-l-green-500">
-                    <SectionHeader icon={faUserCheck} title="Personal en Turno (Activos)" colorClass="bg-green-500" />
+                    <SectionHeader icon={faUserCheck} title="Personal Activo" colorClass="bg-green-500" />
                     <StaffTable 
                         data={activos} 
-                        emptyMessage="No hay personal activo actualmente." 
+                        emptyMessage="No hay personal activo registrado." 
                         statusColor="text-green-600"
                     />
                 </Card>
 
-                {/* PERSONAL INACTIVO */}
                 <Card className="p-6 border-l-4 border-l-red-500 bg-red-50/10">
-                    <SectionHeader icon={faUserXmark} title="Personal Inactivo / Suspendido" colorClass="bg-red-500" />
+                    <SectionHeader icon={faUserXmark} title="Personal Inactivo" colorClass="bg-red-500" />
                     <StaffTable 
                         data={inactivos} 
-                        emptyMessage="No hay personal inactivo en el sistema." 
+                        emptyMessage="No hay personal inactivo." 
                         statusColor="text-red-600"
                     />
                 </Card>
-
             </div>
         </div>
     );

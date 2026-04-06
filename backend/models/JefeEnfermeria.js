@@ -1,0 +1,47 @@
+import mongoose from 'mongoose';
+
+const jefeEnfermeriaSchema = new mongoose.Schema({
+  cuenta: {
+    id_interno: { type: Number, unique: true },
+    correo_electronico: { type: String, required: true},
+    password_hash: { type: String, required: true },
+    rol: { type: String, default: "jefe" }, 
+    estado_cuenta: { type: String, default: "activo" }
+  },
+  identidad: {
+    nombre: String,
+    apellido_paterno: String,
+    apellido_materno: String,
+    cedula_profesional: String,
+    curp_dni: String
+  },
+  contacto: {
+    telefono: String
+  },
+  direccion: {
+    calle: String,
+    ciudad: String,
+    estado: String
+  },
+  perfil_profesional: {
+    grado_academico: String,
+    especialidades: [String],
+    institucion_egreso: String
+  },
+  datos_laborales: {
+    unidad_hospitalaria: String,
+    area_asignada: String,
+    turno: String,
+    fecha_ingreso: String,
+    esta_activo: { type: Boolean, default: true },
+    // --- ESTOS SON LOS PUERTOS DE ENLACE ---
+    institucionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institucion' },
+    enfermeros_a_cargo: [{ type: Number }]
+  },
+  metadatos: {
+    creado_el: { type: Date, default: Date.now }
+  }
+});
+
+// Lo exportamos para la colección de enfermeros para que convivan en la misma tabla
+export default mongoose.model('Jefe', jefeEnfermeriaSchema, "jefe_enfermeria");

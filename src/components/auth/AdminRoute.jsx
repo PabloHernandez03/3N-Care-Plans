@@ -3,18 +3,26 @@ import { Navigate, Outlet } from 'react-router-dom';
 export default function AdminRoute() {
     const userString = sessionStorage.getItem('user');
     
-    if (!userString) {
+    if (!userString) return <Navigate to="/" replace />;
+
+    let user;
+    try {
+        user = JSON.parse(userString);
+    } catch (error) {
         return <Navigate to="/" replace />;
     }
 
-    const user = JSON.parse(userString);
+    const rolUsuario = user?.cuenta?.rol;
 
-    // REGLA DE ACCESO (ACL): Si no es admin, lo rebotamos a su dashboard normal
-    if (user.cuenta.rol !== 'admin') {
-        console.warn("Intento de acceso no autorizado. Redirigiendo a VLAN de Enfermería.");
-        return <Navigate to="/dashboard" replace />;
+    if (rolUsuario !== 'admin') {
+        console.warn(`Acceso denegado a Admin: ${rolUsuario}. Redirigiendo según perfil.`);
+        
+        // REDIRECCIÓN INTELIGENTE:
+        if (rolUsuario === 'jefe') {
+            return <Navigate to="/team" replace />; // Elena va a su zona
+        }
+        return <Navigate to="/dashboard" replace />; // Kevin va a la suya
     }
 
-    // Si es admin, le abrimos el puerto y mostramos la vista
     return <Outlet />;
 }

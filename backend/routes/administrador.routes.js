@@ -1,6 +1,7 @@
 import express from "express";
 import Admin from "../models/Admins.js"; 
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken"; // <- IMPORTANTE: Agregamos jsonwebtoken
 
 const router = express.Router();
 
@@ -27,9 +28,19 @@ router.post("/login", async (req, res) => {
     const datosUsuario = admin.toObject();
     delete datosUsuario.cuenta.password_hash;
 
+    // GENERAMOS EL TOKEN JWT
+    // (Asegúrate de tener un JWT_SECRET en tu archivo .env, por ejemplo: JWT_SECRET=mi_clave_secreta_super_segura)
+    const token = jwt.sign(
+      { id: admin._id, rol: admin.cuenta.rol }, 
+      process.env.JWT_SECRET || 'secreto_de_desarrollo', 
+      { expiresIn: "8h" }
+    );
+
+    // ENVIAMOS EL TOKEN AL FRONTEND
     res.json({
       mensaje: "Bienvenido al panel administrativo",
-      user: datosUsuario 
+      user: datosUsuario,
+      token: token // <- ESTA ES LA PIEZA QUE FALTABA
     });
 
   } catch (error) {
