@@ -103,6 +103,15 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
     const [evaluatingNoc, setEvaluatingNoc] = useState(null);
     const [currentScores, setCurrentScores] = useState({});
     const [isSavingEval, setIsSavingEval] = useState(false);
+    
+    const [signosVitales,   setSignosVitales]   = useState([]);
+    const [modalSignos,     setModalSignos]     = useState(false);
+    const [savingSigno,     setSavingSigno]     = useState(false);
+    const [formSigno,       setFormSigno]       = useState({
+        frecuenciaCardiaca: '', sistolica: '', diastolica: '',
+        frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
+        glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
+    });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -111,6 +120,9 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                 setPatientData(resPatient.data.patient || resPatient.data);
                 setClinicalRecord(resPatient.data.clinicalRecord || null);
                 setAdmissions(resPatient.data.admissions || []);
+
+                const resSignos = await api.get(`/api/vitalsigns/paciente/${planData.pacienteId._id}`);
+                setSignosVitales(resSignos.data || []);
 
                 const codigosNoc = planData.nocsEvaluados?.map(n => n.codigo) || [];
                 const nombresNoc = {};
@@ -178,6 +190,42 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
         }finally {
                     setIsSavingEval(false);
                 }
+    };
+
+    const handleGuardarSigno = async () => {
+        setSavingSigno(true);
+        try {
+            const { data } = await api.post('/api/vitalsigns', {
+                pacienteId: planData.pacienteId._id,
+                signos: {
+                    frecuenciaCardiaca:     formSigno.frecuenciaCardiaca     ? Number(formSigno.frecuenciaCardiaca)     : undefined,
+                    presionArterial: (formSigno.sistolica || formSigno.diastolica) ? {
+                        sistolica:  formSigno.sistolica  ? Number(formSigno.sistolica)  : undefined,
+                        diastolica: formSigno.diastolica ? Number(formSigno.diastolica) : undefined,
+                    } : undefined,
+                    frecuenciaRespiratoria: formSigno.frecuenciaRespiratoria ? Number(formSigno.frecuenciaRespiratoria) : undefined,
+                    temperatura:            formSigno.temperatura            ? Number(formSigno.temperatura)            : undefined,
+                    saturacionOxigeno:      formSigno.saturacionOxigeno      ? Number(formSigno.saturacionOxigeno)      : undefined,
+                    glucosa:                formSigno.glucosa                ? Number(formSigno.glucosa)                : undefined,
+                    peso:                   formSigno.peso                   ? Number(formSigno.peso)                   : undefined,
+                    talla:                  formSigno.talla                  ? Number(formSigno.talla)                  : undefined,
+                    dolor:                  formSigno.dolor                  ? Number(formSigno.dolor)                  : undefined,
+                },
+                observaciones: formSigno.observaciones,
+            });
+            setSignosVitales(prev => [data, ...prev]);
+            setModalSignos(false);
+            setFormSigno({
+                frecuenciaCardiaca: '', sistolica: '', diastolica: '',
+                frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
+                glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
+            });
+            if (showToast) showToast('Signos vitales registrados', 'success');
+        } catch {
+            if (showToast) showToast('Error al guardar signos vitales', 'error');
+        } finally {
+            setSavingSigno(false);
+        }
     };
 
     const handlePrintPlan = () => {
@@ -321,6 +369,135 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                     })}
                 </div>
             </SectionCard>
+
+            {/* ══ SECCIÓN: SIGNOS VITALES ══ */}
+            <SectionCard icon={faChartBar} title="Signos Vitales" titleColor="text-[#16a09e]" count={signosVitales.length}>
+                <div className="pt-2">
+
+                    {/* Botón nueva toma */}
+                    {planData.estado === 'Activo' && (
+                        <button onClick={() => setModalSignos(true)}
+                                className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2547] transition-all print:hidden">
+                            + Registrar nueva toma
+                        </button>
+                    )}
+
+                    {signosVitales.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Sin registros de signos vitales.</p>
+                    ) : (
+                        <div className="overflow-x-auto rounded-xl border border-gray-100">
+                            <table className="w-full text-xs min-w-[700px]">
+                                <thead>
+                                    <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wide text-[10px]">
+                                        <th className="px-4 py-3 text-left">Fecha</th>
+                                        <th className="px-4 py-3 text-center">FC (bpm)</th>
+                                        <th className="px-4 py-3 text-center">PA (mmHg)</th>
+                                        <th className="px-4 py-3 text-center">FR (rpm)</th>
+                                        <th className="px-4 py-3 text-center">Temp (°C)</th>
+                                        <th className="px-4 py-3 text-center">SpO₂ (%)</th>
+                                        <th className="px-4 py-3 text-center">Glucosa</th>
+                                        <th className="px-4 py-3 text-center">Dolor</th>
+                                        <th className="px-4 py-3 text-center">Peso (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {signosVitales.map((sv, i) => (
+                                        <tr key={sv._id || i} className={`transition-colors ${i === 0 ? 'bg-[#16a09e]/5 font-semibold' : 'bg-white hover:bg-gray-50'}`}>
+                                            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                                                {i === 0 && <span className="mr-1.5 text-[9px] bg-[#16a09e] text-white px-1.5 py-0.5 rounded font-bold uppercase">Último</span>}
+                                                {new Date(sv.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                <span className="text-gray-400 ml-1 text-[10px]">
+                                                    {new Date(sv.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.frecuenciaCardiaca ?? '—'}</td>
+                                            <td className="px-4 py-3 text-center text-gray-700">
+                                                {sv.signos?.presionArterial
+                                                    ? `${sv.signos.presionArterial.sistolica ?? '?'}/${sv.signos.presionArterial.diastolica ?? '?'}`
+                                                    : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.frecuenciaRespiratoria ?? '—'}</td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.temperatura ?? '—'}</td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.saturacionOxigeno ?? '—'}</td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.glucosa ?? '—'}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                {sv.signos?.dolor != null ? (
+                                                    <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                                        sv.signos.dolor <= 3 ? 'bg-green-100 text-green-700'
+                                                        : sv.signos.dolor <= 6 ? 'bg-amber-100 text-amber-700'
+                                                        : 'bg-red-100 text-red-700'}`}>
+                                                        {sv.signos.dolor}/10
+                                                    </span>
+                                                ) : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-gray-700">{sv.signos?.peso ?? '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </SectionCard>
+
+            {/* ══ SECCIÓN: HISTORIAL NOC ══ */}
+            {planData.nocsEvaluados?.some(n => n.historial?.length > 0) && (
+                <SectionCard icon={faHistory} title="Historial de Evaluaciones NOC" defaultOpen={false}>
+                    <div className="pt-2 space-y-4">
+                        {planData.nocsEvaluados.filter(n => n.historial?.length > 0).map((noc, idx) => (
+                            <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden">
+                                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+                                    <p className="text-xs font-bold text-[#0f3460]">{nocNames[noc.codigo] || noc.codigo}</p>
+                                </div>
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="text-gray-400 font-bold uppercase tracking-wide text-[10px]">
+                                            <th className="px-4 py-2 text-left">Fecha evaluación</th>
+                                            <th className="px-4 py-2 text-center">Promedio anterior</th>
+                                            <th className="px-4 py-2 text-center">Promedio actual</th>
+                                            <th className="px-4 py-2 text-center">Evolución</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {[...noc.historial].reverse().map((h, i, arr) => {
+                                            const siguiente = i === 0 ? noc.promedio : arr[i - 1].promedio;
+                                            const mejora = siguiente > h.promedio;
+                                            return (
+                                                <tr key={i} className="bg-white hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-2.5 text-gray-500">
+                                                        {new Date(h.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                                            h.promedio >= 4 ? 'bg-red-100 text-red-700'
+                                                            : h.promedio >= 3 ? 'bg-amber-100 text-amber-700'
+                                                            : 'bg-green-100 text-green-700'}`}>
+                                                            {h.promedio}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                                                            siguiente >= 4 ? 'bg-red-100 text-red-700'
+                                                            : siguiente >= 3 ? 'bg-amber-100 text-amber-700'
+                                                            : 'bg-green-100 text-green-700'}`}>
+                                                            {siguiente}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <span className={`text-xs font-bold ${mejora ? 'text-green-600' : 'text-red-500'}`}>
+                                                            {mejora ? '↑ Mejoró' : '↓ Empeoró'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ))}
+                    </div>
+                </SectionCard>
+            )}
 
             {/* ══ SECCIÓN II: INGRESO VINCULADO ══ */}
             <SectionCard icon={faHospital} title="Datos del Ingreso Vinculado" defaultOpen={false}>
@@ -489,6 +666,78 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                             </button>
                             <button onClick={handleSaveEvaluation} disabled={Object.keys(currentScores).length < evaluatingNoc.indicadores.length || isSavingEval} className={`px-8 py-3.5 rounded-xl font-bold text-sm shadow-md transition-all w-full sm:w-auto ${Object.keys(currentScores).length < evaluatingNoc.indicadores.length || isSavingEval ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-[#16a09e] text-white hover:bg-[#128a88]'}`}>
                                 {isSavingEval ? 'Guardando...' : 'Actualizar Evaluación'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal nueva toma signos vitales */}
+            {modalSignos && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 print:hidden"
+                    onClick={() => setModalSignos(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+                        onClick={e => e.stopPropagation()}>
+
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                            <h2 className="font-semibold text-gray-800">Nueva toma de signos vitales</h2>
+                            <button onClick={() => setModalSignos(false)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                {[
+                                    ['frecuenciaCardiaca',     'FC',      'bpm',   '0','300','1'],
+                                    ['frecuenciaRespiratoria', 'FR',      'rpm',   '0','60', '1'],
+                                    ['temperatura',            'Temp',    '°C',    '30','45','0.1'],
+                                    ['saturacionOxigeno',      'SpO₂',    '%',     '0','100','1'],
+                                    ['glucosa',                'Glucosa', 'mg/dL', '0','','1'],
+                                    ['peso',                   'Peso',    'kg',    '0','','0.1'],
+                                    ['talla',                  'Talla',   'cm',    '0','','1'],
+                                    ['dolor',                  'Dolor',   '0–10',  '0','10','1'],
+                                ].map(([name, label, unit, min, max, step]) => (
+                                    <div key={name}>
+                                        <p className="text-xs text-gray-400 mb-1">{label} <span className="text-gray-300">{unit}</span></p>
+                                        <input type="number" min={min} max={max || undefined} step={step}
+                                            value={formSigno[name]}
+                                            onChange={e => setFormSigno(p => ({ ...p, [name]: e.target.value }))}
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20 transition" />
+                                    </div>
+                                ))}
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-xs text-gray-400 mb-1">PA <span className="text-gray-300">mmHg</span></p>
+                                    <div className="flex items-center gap-1">
+                                        <input type="number" min="0" max="300" placeholder="120"
+                                            value={formSigno.sistolica}
+                                            onChange={e => setFormSigno(p => ({ ...p, sistolica: e.target.value }))}
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/20 transition" />
+                                        <span className="text-gray-400 font-bold">/</span>
+                                        <input type="number" min="0" max="200" placeholder="80"
+                                            value={formSigno.diastolica}
+                                            onChange={e => setFormSigno(p => ({ ...p, diastolica: e.target.value }))}
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/20 transition" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Observaciones</p>
+                                <textarea rows={2} value={formSigno.observaciones}
+                                        onChange={e => setFormSigno(p => ({ ...p, observaciones: e.target.value }))}
+                                        placeholder="Notas adicionales..."
+                                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/20 transition" />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+                            <button onClick={() => setModalSignos(false)}
+                                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
+                                Cancelar
+                            </button>
+                            <button onClick={handleGuardarSigno} disabled={savingSigno}
+                                    className="px-5 py-2 rounded-lg bg-[#0f3460] text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all disabled:opacity-60 flex items-center gap-2">
+                                {savingSigno ? 'Guardando...' : 'Guardar toma'}
                             </button>
                         </div>
                     </div>

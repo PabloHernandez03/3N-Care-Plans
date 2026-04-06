@@ -35,11 +35,16 @@ const carePlanSchema = new mongoose.Schema({
 
   // ── NOC ────────────────────────────────────────────────
   nocsEvaluados: [{
-    codigo:      String,
-    promedio:    Number,
-    indicadores: { type: Map, of: Number }
+      codigo:      String,
+      promedio:    Number,
+      indicadores: Object,
+      // ← nuevo: historial de evaluaciones anteriores
+      historial: [{
+          promedio:    Number,
+          indicadores: Object,
+          fecha:       { type: Date, default: Date.now }
+      }]
   }],
-
   // ── NIC ────────────────────────────────────────────────
   nicsSeleccionados: [{
     codigo: String,

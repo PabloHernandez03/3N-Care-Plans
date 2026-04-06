@@ -57,12 +57,35 @@ router.get("/patient/:id", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
     try {
-        // Verificar que el plan pertenece al enfermero/institución
         const plan = await CarePlan.findOne({
             _id: req.params.id,
             ...filtroAcceso(req)
         });
         if (!plan) return res.status(404).json({ error: "Plan no encontrado" });
+
+        // Si viene actualización de NOCs, preservar historial
+        if (req.body.nocsEvaluados) {
+            req.body.nocsEvaluados = req.body.nocsEvaluados.map(nocNuevo => {
+                const nocAnterior = plan.nocsEvaluados.find(n => n.codigo === nocNuevo.codigo);
+                if (!nocAnterior) return nocNuevo;
+
+                // Solo agregar al historial si el promedio cambió
+                const historialPrevio = nocAnterior.historial || [];
+                const cambio = nocAnterior.promedio !== nocNuevo.promedio;
+
+                return {
+                    ...nocNuevo,
+                    historial: cambio ? [
+                        ...historialPrevio,
+                        {
+                            promedio:    nocAnterior.promedio,
+                            indicadores: nocAnterior.indicadores,
+                            fecha:       new Date()
+                        }
+                    ] : historialPrevio
+                };
+            });
+        }
 
         const planActualizado = await CarePlan.findByIdAndUpdate(
             req.params.id,
@@ -71,6 +94,7 @@ router.put("/:id", async (req, res) => {
         );
         res.json(planActualizado);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: "Error al actualizar el plan" });
     }
 });
