@@ -329,6 +329,7 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
     const nombreCompleto = [nombre?.apellidoPaterno, nombre?.apellidoMaterno, nombre?.nombre].filter(Boolean).join(' ');
     const edadP = getAge(demograficos?.fechaNacimiento);
     const avatarBg = demograficos?.sexo === 'M' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600';
+    const isFinalizado = planData.estado === 'Finalizado';
 
     const ant = clinicalRecord?.antecedentes || {};
     const alergias = clinicalRecord?.alergias || {};
@@ -461,10 +462,13 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
 
                                                 return (
                                                     <li key={i} 
-                                                        onClick={() => handleToggleActividad(nic.codigo, actDesc, isRealizada)}
-                                                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                                            isRealizada ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 hover:border-[#16a09e]'
-                                                        }`}>
+                                                        onClick={() => !isFinalizado && handleToggleActividad(nic.codigo, actDesc, isRealizada)}
+                                                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                                                            isFinalizado ? 'cursor-default opacity-80' : 'cursor-pointer hover:border-[#16a09e]'
+                                                        } ${
+                                                            isRealizada ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'
+                                                        }`}
+                                                    >
                                                         <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 ${
                                                             isRealizada ? 'bg-[#16a09e] border-[#16a09e] text-white' : 'border-gray-300 bg-white'
                                                         }`}>
@@ -522,7 +526,7 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                                         <th className="px-2 py-3 text-center">SpO₂</th>
                                         <th className="px-2 py-3 text-center">Glucosa</th>
                                         <th className="px-2 py-3 text-center">Dolor</th>
-                                        <th className="px-4 py-3 text-center print:hidden">Acciones</th>
+                                        {!isFinalizado && <th className="px-4 py-3 text-center print:hidden">Acciones</th>}
                                     </tr>
                                 </thead>
                                     <tbody className="divide-y divide-gray-50">
@@ -587,6 +591,17 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
                                                         <FontAwesomeIcon icon={faStethoscope} className="text-xs" />
                                                     </button>
                                                 </td>
+                                                
+                                                {!isFinalizado && (
+                                                    <td className="px-4 py-4 text-center print:hidden">
+                                                        <button 
+                                                            onClick={() => handleEditSigno(sv)}
+                                                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#16a09e] hover:bg-[#16a09e]/10 rounded-full transition-all"
+                                                        >
+                                                            <FontAwesomeIcon icon={faPencil} className="text-xs" />
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -605,28 +620,30 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
             >
                 <div className="space-y-6 pt-2">
                     {/* Input de Nueva Nota: Estilo similar a tu Modal de Signos */}
-                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 print:hidden">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">
-                            Registrar nueva observación del turno
-                        </p>
-                        <textarea
-                            value={nuevaNota}
-                            onChange={(e) => setNuevaNota(e.target.value)}
-                            className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/10 transition-all resize-none"
-                            placeholder="Ej: Paciente refiere mejoría en el dolor tras administración de analgésico..."
-                            rows="3"
-                        />
-                        <div className="flex justify-end mt-3">
-                            <button
-                                onClick={handleAddNota}
-                                disabled={enviandoNota || !nuevaNota.trim()}
-                                className="px-6 py-2.5 rounded-xl bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2547] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
-                            >
-                                <FontAwesomeIcon icon={faCheckCircle} />
-                                {enviandoNota ? "Guardando..." : "Guardar Nota"}
-                            </button>
+                    {!isFinalizado && (
+                        <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 print:hidden">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                                Registrar nueva observación del turno
+                            </p>
+                            <textarea
+                                value={nuevaNota}
+                                onChange={(e) => setNuevaNota(e.target.value)}
+                                className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#16a09e] focus:ring-2 focus:ring-[#16a09e]/10 transition-all resize-none"
+                                placeholder="Ej: Paciente refiere mejoría en el dolor tras administración de analgésico..."
+                                rows="3"
+                            />
+                            <div className="flex justify-end mt-3">
+                                <button
+                                    onClick={handleAddNota}
+                                    disabled={enviandoNota || !nuevaNota.trim()}
+                                    className="px-6 py-2.5 rounded-xl bg-[#0f3460] text-white text-xs font-bold hover:bg-[#0a2547] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    <FontAwesomeIcon icon={faCheckCircle} />
+                                    {enviandoNota ? "Guardando..." : "Guardar Nota"}
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Listado de Notas: Estilo similar a tu Historial NOC */}
                     <div className="space-y-4 print:space-y-3">
