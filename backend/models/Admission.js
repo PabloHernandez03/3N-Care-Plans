@@ -13,6 +13,9 @@ const admissionSchema = new mongoose.Schema({
     required: true
   },
 
+  registradoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'Enfermero', required: true },
+  institucionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institucion', default: null },
+
   // ── Datos de ingreso ───────────────────────────────────
   ingreso: {
     fecha:             { type: Date, required: true, default: Date.now },
@@ -25,6 +28,7 @@ const admissionSchema = new mongoose.Schema({
   // ── Egreso (se llena al dar de alta) ──────────────────
   egreso: {
     fecha:     { type: Date },
+    hora:      { type: String },
     tipo:      { type: String, enum: ['Alta', 'Traslado', 'Defunción', 'Voluntaria'] },
     resumen:   { type: String }
   },

@@ -406,7 +406,7 @@ export default function PatientCards({
                               </span>
                               {isActive && (
                                   <span className="hidden sm:inline text-[10px] opacity-80 leading-none">
-                                      <FontAwesomeIcon icon={isDesc ? faArrowUp : faArrowDown} />
+                                      <FontAwesomeIcon icon={faArrowDown} />
                                   </span>
                               )}
                           </button>

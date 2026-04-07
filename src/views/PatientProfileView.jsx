@@ -227,6 +227,184 @@ function ModalNuevaToma({ pacienteId, onClose, onSaved }) {
     );
 }
 
+function ModalEgreso({ admissionId, onClose, onSaved }) {
+    const [form, setForm] = useState({
+        fecha: '',
+        hora: '',
+        tipo: 'Alta',
+        resumen: ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    // Mismos estilos de CarePlanForm
+    const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 transition focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20";
+    const selectCls = `${inputCls} appearance-none cursor-pointer`;
+
+    const handle = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+
+    // ── Funciones de formato (Idénticas a CarePlanForm) ──
+    const getToday = () => {
+        const d = new Date();
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+
+    const getNowTime = () => {
+        const d = new Date();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    const handleDate = (e) => {
+        let { value } = e.target;
+        value = value.replace(/\D/g, '');
+        if (value.length > 2) value = value.slice(0, 2) + '/' + value.slice(2);
+        if (value.length > 5) value = value.slice(0, 5) + '/' + value.slice(5, 10);
+        if (value.length > 10) value = value.slice(0, 10);
+        setForm(p => ({ ...p, fecha: value }));
+    };
+
+    const formatoFechaBackend = (fechaStr) => {
+        if (!fechaStr) return null;
+        if (fechaStr.includes('/')) {
+            const [d, m, y] = fechaStr.split('/');
+            return `${y}-${m}-${d}T00:00:00.000Z`;
+        }
+        return fechaStr;
+    };
+
+    async function handleSave() {
+        setSaving(true);
+        try {
+            const payload = {
+                egreso: {
+                    fecha: formatoFechaBackend(form.fecha),
+                    hora: form.hora,
+                    tipo: form.tipo,
+                    resumen: form.resumen
+                }
+            };
+            const { data } = await api.put(`/api/admissions/${admissionId}/egreso`, payload);
+            onSaved(data);
+        } catch (error) {
+            console.error(error);
+            alert('Error al registrar el egreso.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-100" onClick={e => e.stopPropagation()}>
+                
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 text-sm">
+                            <FontAwesomeIcon icon={faHospital} />
+                        </div>
+                        <h2 className="font-semibold text-gray-800">Registrar Egreso</h2>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                </div>
+
+                {/* Formulario */}
+                <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        
+                        {/* Fecha con botón HOY */}
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Fecha de salida</p>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    name="fecha" 
+                                    value={form.fecha} 
+                                    onChange={handleDate} 
+                                    placeholder="DD/MM/AAAA" 
+                                    maxLength={10} 
+                                    className={`${inputCls} pr-16`} 
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm(p => ({ ...p, fecha: getToday() }))} 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-[#16a09e]/10 text-[#16a09e] font-bold hover:bg-[#16a09e]/20 transition"
+                                >
+                                    HOY
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Hora con botón AHORA */}
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Hora de salida</p>
+                            <div className="relative">
+                                <input 
+                                    type="time" 
+                                    name="hora" 
+                                    value={form.hora} 
+                                    onChange={handle} 
+                                    className={`${inputCls} pr-20`} 
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm(p => ({ ...p, hora: getNowTime() }))} 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-[#0f3460]/10 text-[#0f3460] font-bold hover:bg-[#0f3460]/20 transition"
+                                >
+                                    AHORA
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Motivo */}
+                        <div className="sm:col-span-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Motivo</p>
+                            <div className="relative">
+                                <select name="tipo" value={form.tipo} onChange={handle} className={selectCls}>
+                                    <option value="Alta">Alta por mejoría</option>
+                                    <option value="Traslado">Traslado</option>
+                                    <option value="Voluntaria">Alta Voluntaria</option>
+                                    <option value="Defunción">Defunción</option>
+                                </select>
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">▾</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Resumen o indicaciones</p>
+                        <textarea 
+                            name="resumen" 
+                            rows={3} 
+                            value={form.resumen} 
+                            onChange={handle} 
+                            placeholder="Condiciones de salida, indicaciones médicas, notas finales..." 
+                            className={`${inputCls} resize-none`} 
+                        />
+                    </div>
+                </div>
+
+                {/* Acciones */}
+                <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-white transition-all">
+                        Cancelar
+                    </button>
+                    <button onClick={handleSave} disabled={saving || !form.fecha || !form.hora} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 active:scale-95 transition-all shadow-md disabled:opacity-60">
+                        {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheck} />}
+                        Confirmar Egreso
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ─── Clases de inputs ───────────────────────────────────────────────────── */
 const inputCls = "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 transition focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20";
 const selectCls = `${inputCls} appearance-none cursor-pointer`;
@@ -340,6 +518,7 @@ export default function PatientProfileView() {
     const [error, setError]         = useState('');
     const [ultimoSigno, setUltimoSigno] = useState(null);
     const [modalSignos, setModalSignos] = useState(false);
+    const [modalEgreso, setModalEgreso] = useState(false);
 
     /* ── Estados de edición por sección ── */
     const [editIdent,  setEditIdent]  = useState(false);
@@ -1021,7 +1200,68 @@ export default function PatientProfileView() {
                         Registrar nueva toma
                     </button>
                 </div>
+
             </SectionCard>
+                {/* ══ SECCIÓN 5: Ingresos (solo lectura) ══ */}
+                <SectionCard icon={faHospital} title="Historial de ingresos" defaultOpen={false}>
+                    <div className="pt-4 space-y-3">
+                        {admissions.length === 0
+                            ? <p className="text-xs text-gray-400 italic">Sin ingresos registrados</p>
+                            : admissions.map((adm, i) => (
+                                <div key={adm._id || i} className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:bg-white print:border-gray-300 print:p-3 print:grid-cols-3 print:break-inside-avoid">
+                                    <div className="sm:col-span-2 lg:col-span-2">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <EstadoBadge estado={adm.estado} />
+                                            <span className="text-[10px] text-gray-400 font-mono">#{adm._id?.slice(-5).toUpperCase()}</span>
+                                        </div>
+                                        <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faStethoscope} className="text-[#16a09e] text-xs print:hidden"/>
+                                            {adm.ingreso?.diagnosticoMedico || '—'}
+                                        </p>
+                                        
+                                        {/* 🟢 BOTÓN DE EGRESO (Aparece solo si está activo) */}
+                                        {adm.estado === 'Activo' && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200/60 print:hidden">
+                                                <button 
+                                                    onClick={() => setModalEgreso(adm._id)}
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
+                                                >
+                                                    <FontAwesomeIcon icon={faCheck} />
+                                                    Registrar Egreso
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* ... Resto de las columnas de Servicio y Fechas ... */}
+                                    <div>
+                                        <DataField label="Servicio / Unidad" value={adm.ingreso?.servicio || '—'} />
+                                        <DataField label="Cama" value={adm.ingreso?.cama
+                                            ? <span className="flex items-center gap-1.5"><FontAwesomeIcon icon={faBed} className="text-xs text-gray-400" />{adm.ingreso.cama}</span>
+                                            : '—'} />
+                                    </div>
+                                    <div>
+                                        <DataField label="Ingreso" value={
+                                            <span className="flex items-center gap-1.5 flex-wrap">
+                                                <FontAwesomeIcon icon={faCalendarDay} className="text-xs text-gray-400" />
+                                                {formatFecha(adm.ingreso?.fecha)}
+                                                {adm.ingreso?.hora && <span className="flex items-center gap-1 text-gray-400"><FontAwesomeIcon icon={faClock} className="text-[10px]" />{adm.ingreso.hora}</span>}
+                                            </span>
+                                        } />
+                                        {adm.egreso?.fecha && (
+                                            <DataField label="Egreso" value={
+                                                <span className="flex items-center gap-1.5">
+                                                    <FontAwesomeIcon icon={faCalendarDay} className="text-xs text-gray-400" />
+                                                    {formatFecha(adm.egreso.fecha)}
+                                                    {adm.egreso.tipo && <Tag color="gray">{adm.egreso.tipo}</Tag>}
+                                                </span>
+                                            } />
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </SectionCard>
 
             {/* Modal nueva toma */}
             {modalSignos && (
@@ -1035,52 +1275,23 @@ export default function PatientProfileView() {
                 />
             )}
 
-            {/* ══ SECCIÓN 5: Ingresos (solo lectura) ══ */}
-            <SectionCard icon={faHospital} title="Historial de ingresos" defaultOpen={false}>
-                <div className="pt-4 space-y-3">
-                    {admissions.length === 0
-                        ? <p className="text-xs text-gray-400 italic">Sin ingresos registrados</p>
-                        : admissions.map((adm, i) => (
-                            <div key={adm._id || i} className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="sm:col-span-2 lg:col-span-2">
-                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        <EstadoBadge estado={adm.estado} />
-                                        <span className="text-[10px] text-gray-400 font-mono">#{adm._id?.slice(-5).toUpperCase()}</span>
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                                        <FontAwesomeIcon icon={faStethoscope} className="text-[#16a09e] text-xs" />
-                                        {adm.ingreso?.diagnosticoMedico || '—'}
-                                    </p>
-                                </div>
-                                <div>
-                                    <DataField label="Servicio / Unidad" value={adm.ingreso?.servicio || '—'} />
-                                    <DataField label="Cama" value={adm.ingreso?.cama
-                                        ? <span className="flex items-center gap-1.5"><FontAwesomeIcon icon={faBed} className="text-xs text-gray-400" />{adm.ingreso.cama}</span>
-                                        : '—'} />
-                                </div>
-                                <div>
-                                    <DataField label="Ingreso" value={
-                                        <span className="flex items-center gap-1.5 flex-wrap">
-                                            <FontAwesomeIcon icon={faCalendarDay} className="text-xs text-gray-400" />
-                                            {formatFecha(adm.ingreso?.fecha)}
-                                            {adm.ingreso?.hora && <span className="flex items-center gap-1 text-gray-400"><FontAwesomeIcon icon={faClock} className="text-[10px]" />{adm.ingreso.hora}</span>}
-                                        </span>
-                                    } />
-                                    {adm.egreso?.fecha && (
-                                        <DataField label="Egreso" value={
-                                            <span className="flex items-center gap-1.5">
-                                                <FontAwesomeIcon icon={faCalendarDay} className="text-xs text-gray-400" />
-                                                {formatFecha(adm.egreso.fecha)}
-                                                {adm.egreso.tipo && <Tag color="gray">{adm.egreso.tipo}</Tag>}
-                                            </span>
-                                        } />
-                                    )}
-                                </div>
-                            </div>
-                        ))
-                    }
-                </div>
-            </SectionCard>
+            {/* Modal Egreso */}
+            {modalEgreso && (
+                <ModalEgreso
+                    admissionId={modalEgreso}
+                    onClose={() => setModalEgreso(null)}
+                    onSaved={(updatedAdmission) => {
+                        // 1. Actualizamos localmente el historial de ingresos
+                        setData(prev => ({
+                            ...prev,
+                            admissions: prev.admissions.map(a => a._id === updatedAdmission._id ? updatedAdmission : a)
+                        }));
+                        // 2. Cerramos el modal
+                        setModalEgreso(null);
+                        // (Opcional) si tienes showToast en este componente: showToast('Egreso registrado correctamente', 'success');
+                    }}
+                />
+            )}
         </div>
     );
 }

@@ -15,51 +15,49 @@ function getInitials(nombre = {}) {
 }
 
 function getNombreCompleto(nombre = {}) {
-    return [nombre.apellidoPaterno, nombre.apellidoMaterno, nombre.nombre].filter(Boolean).join(' ');
+    return [nombre.nombre,nombre.apellidoPaterno, nombre.apellidoMaterno].filter(Boolean).join(' ');
 }
 
 // ── Lógica de Ordenamiento ────────────────────────────────────────────────────
 function sortPlans(plans, sort, dir) {
     const arr = [...plans];
-    const asc = dir === 'asc';
+    const isAsc = dir === 'asc';
 
-    switch (sort) {
-        case 'nombre':
-            return arr.sort((a, b) => {
-                const nameA = getNombreCompleto(a.pacienteId?.nombre);
-                const nameB = getNombreCompleto(b.pacienteId?.nombre);
-                const cmp = nameA.localeCompare(nameB, 'es');
-                return asc ? cmp : -cmp;
-            });
-        case 'diagnostico':
-            return arr.sort((a, b) => {
-                const diagA = a.nanda?.nombre || '';
-                const diagB = b.nanda?.nombre || '';
-                const cmp = diagA.localeCompare(diagB, 'es');
-                return asc ? cmp : -cmp;
-            });
-        case 'reciente':
-        default:
-            return arr.sort((a, b) => {
-                const cmp = new Date(b.fecha || 0) - new Date(a.fecha || 0);
-                return asc ? cmp : -cmp; 
-            });
-    }
+    return arr.sort((a, b) => {
+        let valA, valB;
+
+        if (sort === 'nombre') {
+            valA = getNombreCompleto(a.pacienteId?.nombre).toLowerCase();
+            valB = getNombreCompleto(b.pacienteId?.nombre).toLowerCase();
+            console.log('Comparando por nombre:', valA, 'vs', valB);
+        } else if (sort === 'diagnostico') {
+            valA = (a.nanda?.nombre || '').toLowerCase();
+            valB = (b.nanda?.nombre || '').toLowerCase();
+        } else {
+            // Caso 'reciente'
+            valA = new Date(a.fecha || 0).getTime();
+            valB = new Date(b.fecha || 0).getTime();
+        }
+
+        if (valA < valB) return isAsc ? -1 : 1;
+        if (valA > valB) return isAsc ? 1 : -1;
+        return 0;
+    });
 }
 
 const SORT_OPTIONS = [
     {
         key: 'reciente',
-        labelAsc: 'Más antiguos',
-        labelDesc: 'Más recientes',
+        labelAsc: 'Más antiguos', 
+        labelDesc: 'Más recientes', 
         iconAsc: <FontAwesomeIcon icon={faClock} className="opacity-60" />,
         iconDesc: <FontAwesomeIcon icon={faClock} />,
         tooltip: 'Fecha de creación',
     },
     {
         key: 'nombre',
-        labelAsc: 'Paciente A→Z',
-        labelDesc: 'Paciente Z→A',
+        labelAsc: 'Nombre A→Z', 
+        labelDesc: 'Nombre Z→A', 
         iconAsc: <FontAwesomeIcon icon={faSortAlphaDown} />,
         iconDesc: <FontAwesomeIcon icon={faSortAlphaUpAlt} />,
         tooltip: 'Ordenar por paciente',
@@ -68,8 +66,8 @@ const SORT_OPTIONS = [
         key: 'diagnostico',
         labelAsc: 'Diagnóstico A→Z',
         labelDesc: 'Diagnóstico Z→A',
-        iconAsc: <FontAwesomeIcon icon={faBookMedical} />,
-        iconDesc: <FontAwesomeIcon icon={faBookMedical} className="opacity-60" />,
+        iconAsc: <FontAwesomeIcon icon={faSortAlphaDown} />,
+        iconDesc: <FontAwesomeIcon icon={faSortAlphaUpAlt} />,
         tooltip: 'Ordenar por NANDA',
     }
 ];
@@ -239,10 +237,13 @@ export default function CarePlanList({ onViewPlan, showToast, patientId }) {
 
     const handleSortClick = (key) => {
         if (sort === key) {
+            // Si ya está el botón activo, invertimos la dirección
             setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
         } else {
+            // Si es un botón nuevo:
             setSort(key);
-            setSortDir('desc');
+            // Para fechas queremos lo más nuevo (desc), para texto queremos A-Z (asc)
+            setSortDir(key === 'reciente' ? 'desc' : 'asc');
         }
         setPage(1);
     };
@@ -307,18 +308,35 @@ export default function CarePlanList({ onViewPlan, showToast, patientId }) {
 
                     {/* Botones de Ordenamiento */}
                     <div className="flex items-center gap-2 flex-wrap justify-end ml-auto">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1.5 justify-end">
                             {SORT_OPTIONS.map(({ key, labelAsc, labelDesc, iconAsc, iconDesc, tooltip }) => {
                                 const isActive = sort === key;
                                 const isDesc   = isActive && sortDir === 'desc';
+                                
                                 return (
                                     <button
-                                        key={key} onClick={() => handleSortClick(key)} title={tooltip}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all select-none
-                                            ${isActive ? 'bg-[#16a09e] text-white border-[#16a09e] shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-[#16a09e]/40 hover:text-[#16a09e]'}`}>
-                                        <span className="text-sm leading-none">{isDesc ? iconDesc : iconAsc}</span>
-                                        <span className="hidden sm:inline">{isDesc ? labelDesc : labelAsc}</span>
-                                        {isActive && <span className="hidden sm:inline text-[10px] opacity-80 leading-none"><FontAwesomeIcon icon={isDesc ? faArrowDown : faArrowUp} /></span>}
+                                        key={key}
+                                        onClick={() => handleSortClick(key)}
+                                        title={tooltip}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                                            border transition-all duration-150 select-none
+                                            ${isActive
+                                                ? 'bg-[#16a09e] text-white border-[#16a09e] shadow-sm'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-[#16a09e]/40 hover:text-[#16a09e]'
+                                            }`}
+                                    >
+                                        <span className="text-sm leading-none">
+                                            {isDesc ? iconDesc : iconAsc}
+                                        </span>
+                                        <span className="hidden sm:inline">
+                                            {isDesc ? labelDesc : labelAsc}
+                                        </span>
+                                        {isActive && (
+                                            <span className="hidden sm:inline text-[10px] opacity-80 leading-none">
+                                                {/* La flechita pequeña siempre indica la dirección técnica: asc=arriba, desc=abajo */}
+                                                <FontAwesomeIcon icon={faArrowDown} />
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}
