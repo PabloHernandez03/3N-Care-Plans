@@ -82,47 +82,59 @@ router.get("/:id", async (req, res) => {
 
 // ── POST / ────────────────────────────────────────────────────────────────
 router.post("/", async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
-        const { nombre, curp, demograficos, antecedentes, alergias,
-                medicacionActual, habitos, redCuidados, ingreso } = req.body;
-
         const ownerId = req.institucionId || req.enfermeroId;
+        const curpUpper = req.body.curp.toUpperCase();
 
-        const [savedPatient] = await Patient.create([{
-            nombre, curp, demograficos,
-            enfermeroId:   req.enfermeroId,
-            institucionId: req.institucionId,
-            ownerId:         ownerId
-        }], { session });
-
-        await ClinicalRecord.create([{
-            pacienteId: savedPatient._id,
-            antecedentes, alergias, medicacionActual, habitos, redCuidados
-        }], { session });
-
-        let savedAdmission = null;
-        if (ingreso) {
-            [savedAdmission] = await Admission.create(
-                [{ pacienteId: savedPatient._id, ingreso }],
-                { session }
-            );
+        // 1. 🛡️ BARRERA DE SEGURIDAD: Checar si la CURP ya existe para este enfermero/institución
+        const pacienteExistente = await Patient.findOne({ curp: curpUpper, ownerId });
+        
+        if (pacienteExistente) {
+            // Mandamos código 400 (Bad Request) con un mensaje claro para el frontend
+            return res.status(400).json({ 
+                error: `Ya existe un paciente registrado con la CURP ${curpUpper} en tu cuenta.` 
+            });
         }
 
-        await session.commitTransaction();
+        // 2. Aquí creas al Paciente (ya sabemos que es seguro)
+        const newPatient = await Patient.create({
+            nombre: req.body.nombre,
+            curp: curpUpper, // Lo guardamos siempre en mayúsculas por consistencia
+            demograficos: req.body.demograficos,
+            ownerId: ownerId,
+            enfermeroId: req.enfermeroId,
+            institucionId: req.institucionId
+        });
+
+        // 3. Creas el Expediente Clínico (ClinicalRecord)
+        const newRecord = await ClinicalRecord.create({
+            pacienteId: newPatient._id,
+            antecedentes: req.body.antecedentes,
+            alergias: req.body.alergias,
+            medicacionActual: req.body.medicacionActual,
+            habitos: req.body.habitos,
+            redCuidados: req.body.redCuidados
+        });
+
+        // 4. Creas el ingreso asegurando todos los IDs
+        const newAdmission = await Admission.create({
+            pacienteId: newPatient._id,
+            ingreso: req.body.ingreso,
+            registradoPor: req.enfermeroId,
+            institucionId: req.institucionId,
+            ownerId: ownerId
+        });
+
+        // 5. Retornas el éxito al frontend
         res.status(201).json({
-            patient: savedPatient,
-            admission: savedAdmission ?? "Sin ingreso registrado"
+            patient: newPatient,
+            clinicalRecord: newRecord,
+            admission: newAdmission
         });
+
     } catch (error) {
-        await session.abortTransaction();
-        const esDuplicado = error.code === 11000;
-        res.status(esDuplicado ? 409 : 500).json({
-            error: esDuplicado ? "Ya existe un paciente con ese CURP" : "Error al crear el paciente"
-        });
-    } finally {
-        session.endSession();
+        console.error("Error en POST /patients:", error); 
+        res.status(500).json({ error: "Error en el servidor al intentar crear el paciente." });
     }
 });
 
