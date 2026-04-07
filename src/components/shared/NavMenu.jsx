@@ -39,7 +39,7 @@ export default function NavMenu() {
 
     const NavItem = ({ to, icon, label }) => (
         <NavLink to={to} className={({ isActive }) => getNavLinkClass(isActive)}
-                  title={label} onClick={() => handleClick(to)}>
+                 title={label} onClick={() => handleClick(to)}>
             <span className="flex justify-center items-center w-8 h-8">
                 <FontAwesomeIcon size="lg" icon={icon} />
             </span>
@@ -55,7 +55,8 @@ export default function NavMenu() {
     );
 
     return (
-        <nav className="flex gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:p-4 max-lg:shadow-lg">
+        // 🟢 AQUÍ ESTÁ LA SOLUCIÓN: Agregamos w-max, mx-auto, justify-center y ajustamos paddings
+        <nav className="flex justify-center items-center w-max mx-auto gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:px-6 max-lg:py-3 max-lg:shadow-lg pointer-events-auto">
 
             {/* --- VISTA PARA ENFERMEROS Y JEFES --- */}
             {(esEnfermero) && (

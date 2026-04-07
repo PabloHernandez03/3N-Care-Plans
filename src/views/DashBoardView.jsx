@@ -231,8 +231,8 @@ export default function DashboardView() {
     /* ── Stats calculados ── */
     const stats = useMemo(() => {
         const total   = patients.length;
-        const activos = withAdm.filter(p => p.ultimoIngreso?.estado === 'Activo').length;
-        const planes  = Array.isArray(carePlans) ? carePlans.length : 0;
+        const activos = withAdm.filter(p => p.ultimoIngreso?.estado === 'Activo').length;  
+        const planes = Array.isArray(carePlans) ? carePlans.length : 0;
 
         /* ── Hábitos ── */
         const habitosMap = {
@@ -280,15 +280,33 @@ export default function DashboardView() {
         };
         const nSlots   = { dia: 14, semana: 8, mes: 6 }[tendencia];
         const nPredict = { dia: 3,  semana: 2, mes: 2  }[tendencia];
-        const tendMap  = {};
+        const tendMap = {};
+
+        // 1. Inicializamos los slots (esto crea los ceros en la gráfica)
         for (let i = nSlots - 1; i >= 0; i--) {
             const d = new Date(ahora);
-            if (tendencia === 'dia')    d.setDate(d.getDate() - i);
-            if (tendencia === 'semana') d.setDate(d.getDate() - i * 7);
-            if (tendencia === 'mes')    d.setMonth(d.getMonth() - i);
-            tendMap[keyFn[tendencia](d)] = 0;
+            if (tendencia === 'dia')     d.setDate(d.getDate() - i);
+            if (tendencia === 'semana')  d.setDate(d.getDate() - i * 7);
+            if (tendencia === 'mes')     d.setMonth(d.getMonth() - i);
+            
+            const label = keyFn[tendencia](d);
+            tendMap[label] = 0;
         }
-        admissions.forEach(a => { if (!a.fecha) return; const key = keyFn[tendencia](new Date(a.fecha)); if (key in tendMap) tendMap[key]++; });
+
+        // 2. Llenamos con datos REALES (aquí está el fix de la propiedad)
+        admissions.forEach(a => {
+            // Buscamos la fecha en 'fecha' O en 'ingreso.fecha' por si acaso
+            const f = a.fecha || a.ingreso?.fecha;
+            if (!f) return;
+
+            const dateObj = new Date(f);
+            if (isNaN(dateObj)) return;
+
+            const key = keyFn[tendencia](dateObj);
+            if (key in tendMap) {
+                tendMap[key]++;
+            }
+        });
         const historico = Object.entries(tendMap).map(([name, ingresos], idx) => ({ name, ingresos, idx, prediccion: null }));
         const n = historico.length;
         const xs = historico.map(d => d.idx), ys = historico.map(d => d.ingresos);
