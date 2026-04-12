@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faHome, faUser, faClipboardList, faBook,
-    faUserCircle, faUserShield, faUsers
+    faUserCircle, faUserShield, faUsers, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function NavMenu() {
@@ -56,7 +56,7 @@ export default function NavMenu() {
 
     return (
         // 🟢 AQUÍ ESTÁ LA SOLUCIÓN: Agregamos w-max, mx-auto, justify-center y ajustamos paddings
-        <nav className="flex justify-center items-center w-max mx-auto gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:px-6 max-lg:py-3 max-lg:shadow-lg pointer-events-auto">
+        <nav className="flex justify-center lg:justify-end items-center w-max mx-auto lg:ml-auto lg:mr-0 gap-4 md:gap-10 text-gray-500 max-lg:backdrop-blur-lg max-lg:border max-lg:border-white/20 max-lg:rounded-full max-lg:px-6 max-lg:py-3 max-lg:shadow-lg pointer-events-auto lg:pr-6">
 
             {/* --- VISTA PARA ENFERMEROS Y JEFES --- */}
             {(esEnfermero) && (
@@ -70,7 +70,11 @@ export default function NavMenu() {
 
             {/* --- VISTA PARA JEFE (Gestionar su equipo) --- */}
             {esJefe && (
-                <NavItem to="/team" icon={faUsers} label="Equipo" />
+                <>
+                    {/* 🟢 Actualizamos el 'to' para que coincida con el Router */}
+                    <NavItem to="/jefe-dashboard" icon={faChartLine} label="Estadísticas" />
+                    <NavItem to="/team" icon={faUsers} label="Equipo" />
+                </>
             )}
 
             {/* --- VISTA EXCLUSIVA PARA ADMIN (Marcus Fenix) --- */}

@@ -341,6 +341,12 @@ export default function DashboardView() {
     );
 
     const visibleCount = widgets.filter(w => w.visible).length;
+    
+    // Máximos para el cálculo de las barras de progreso
+    const maxDiag = Math.max(...diagnosticos.map(d => d.value), 1);
+    const maxMed = Math.max(...medicamentos.map(m => m.value), 1);
+    const maxEstancia = Math.max(...estancia.map(e => e.promedio), 1);
+    const maxAnt = Math.max(...(expedienteStats?.antecedentes || []).map(a => a.value), 1);
 
     return (
         <div className="space-y-6 pb-10">
@@ -555,56 +561,134 @@ export default function DashboardView() {
                 </Card>
             )}
 
-            {/* Diagnósticos */}
-            {isVisible('diagnosticos') && (
-                <Card className="p-5">
-                    <SectionHeader icon={faStethoscope} title="Top diagnósticos más frecuentes" />
-                    {diagnosticos.length === 0
-                        ? <p className="text-xs text-gray-400 italic">Sin datos de diagnósticos</p>
-                        : <ResponsiveContainer width="100%" height={220}>
-                            <BarChart data={diagnosticos} layout="vertical" margin={{ top: 4, right: 20, left: 4, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} width={140} />
-                                <Tooltip content={({ active, payload, label }) => {
-                                    if (!active || !payload?.length) return null;
-                                    return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p className="font-bold text-gray-700">{label}</p><p className="text-[#0f3460]">{payload[0].value} ingresos</p></div>;
-                                }} />
-                                <Bar dataKey="value" fill="#0f3460" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    }
-                </Card>
-            )}
+            {/* Fila de Datos Clínicos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                {/* Diagnósticos */}
+                {isVisible('diagnosticos') && (
+                    <Card className="p-5">
+                        <SectionHeader icon={faStethoscope} title="Top diagnósticos más frecuentes" />
+                        {diagnosticos.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No hay datos suficientes.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {diagnosticos.map((item, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-semibold text-gray-700 truncate pr-4">{item.name}</span>
+                                            <span className="font-black text-[#16a09e]">{item.value}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div className="bg-[#16a09e] h-2 rounded-full transition-all duration-1000" style={{ width: `${(item.value / maxDiag) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
+                )}
 
-            {/* Antecedentes patológicos */}
-            {isVisible('antecedentes') && (
-                <Card className="p-5">
-                    <SectionHeader icon={faNotesMedical} title="Antecedentes patológicos más comunes" />
-                    {!expedienteStats?.antecedentes?.length
-                        ? <p className="text-xs text-gray-400 italic">Sin datos</p>
-                        : <ResponsiveContainer width="100%" height={220}>
-                            <BarChart data={expedienteStats.antecedentes} layout="vertical"
-                                    margin={{ top: 4, right: 20, left: 4, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} width={130} />
-                                <Tooltip content={({ active, payload, label }) => {
-                                    if (!active || !payload?.length) return null;
-                                    return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p className="font-bold text-gray-700">{label}</p><p className="text-red-500">{payload[0].value} pacientes</p></div>;
-                                }} />
-                                <Bar dataKey="value" fill="#dc2626" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    }
-                </Card>
+                {/* Antecedentes patológicos */}
+                {isVisible('antecedentes') && (
+                    <Card className="p-5">
+                        <SectionHeader icon={faNotesMedical} title="Antecedentes patológicos más comunes" />
+                        {!expedienteStats?.antecedentes?.length ? (
+                            <p className="text-sm text-gray-400 italic">No hay datos suficientes.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {expedienteStats.antecedentes.map((item, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-semibold text-gray-700 truncate pr-4">{item.name}</span>
+                                            <span className="font-black text-red-500">{item.value}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div className="bg-red-500 h-2 rounded-full transition-all duration-1000" style={{ width: `${(item.value / maxAnt) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
+                )}
+
+                {/* Medicamentos */}
+                {isVisible('medicamentos') && (
+                    <Card className="p-5">
+                        <SectionHeader icon={faPills} title="Medicamentos más recetados" />
+                        {medicamentos.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No hay datos suficientes.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {medicamentos.map((item, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex justify-between text-xs mb-1">
+                                            <span className="font-semibold text-gray-700 truncate pr-4">{item.name}</span>
+                                            <span className="font-black text-indigo-500">{item.value}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div className="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style={{ width: `${(item.value / maxMed) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
+                )}
+
+                {/* Reingresos */}
+                {isVisible('reingresos') && reingresos && (
+                    <Card className="p-5">
+                        <SectionHeader icon={faRotate} title="Reingresos" />
+                        <div className="grid grid-cols-3 gap-4">
+                            {[
+                                ['1 ingreso',   reingresos.unIngreso,   'bg-green-50  text-green-700',  'Primer ingreso'],
+                                ['2 ingresos',  reingresos.dosIngresos, 'bg-amber-50  text-amber-700',  'Reingresó una vez'],
+                                ['3+ ingresos', reingresos.tresMas,     'bg-red-50    text-red-700',    'Reingresos múltiples'],
+                            ].map(([label, value, cls, sub]) => (
+                                <div key={label} className={`rounded-xl p-4 text-center border border-white/50 ${cls}`}>
+                                    <p className="text-3xl font-bold">{value}</p>
+                                    <p className="text-xs font-bold uppercase tracking-wide mt-1">{label}</p>
+                                    <p className="text-xs opacity-70 mt-0.5 hidden md:block">{sub}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                )}
+            </div>
+
+            {/* Estancia promedio (Ancho completo) */}
+            {isVisible('estancia') && (
+                <div className="bg-[#0f3460] rounded-2xl p-6 shadow-lg relative overflow-hidden">
+                    <FontAwesomeIcon icon={faBed} className="absolute -right-4 -bottom-4 text-8xl text-white opacity-5" />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6 relative z-10 flex items-center gap-2">
+                        Promedio de Estancia por Servicio (Días)
+                    </h3>
+                    {estancia.length === 0 ? (
+                        <p className="text-sm text-white/50 italic relative z-10">No hay egresos registrados suficientes para calcular la estancia.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 relative z-10">
+                            {estancia.map((item, idx) => (
+                                <div key={idx} className="bg-white/10 p-3 rounded-xl border border-white/10">
+                                    <div className="flex justify-between text-xs mb-2 text-white">
+                                        <span className="font-semibold truncate pr-4">{item.name}</span>
+                                        <span className="font-black text-amber-400">{item.promedio} días</span>
+                                    </div>
+                                    <div className="w-full bg-white/10 rounded-full h-1.5">
+                                        <div className="bg-amber-400 h-1.5 rounded-full transition-all duration-1000" style={{ width: `${(item.promedio / maxEstancia) * 100}%` }}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Hábitos */}
             {isVisible('habitos') && expedienteStats?.habitos && (
                 <Card className="p-5">
                     <SectionHeader icon={faLeaf} title="Distribución de hábitos" />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         {[
                             ['Tabaquismo',  expedienteStats.habitos.tabaquismo,  { No: '#22c55e', Exfumador: '#f59e0b', Sí: '#ef4444' }],
                             ['Alcoholismo', expedienteStats.habitos.alcoholismo, { No: '#22c55e', Social: '#f59e0b',    Habitual: '#ef4444' }],
@@ -614,26 +698,25 @@ export default function DashboardView() {
                             const total = chartData.reduce((s, d) => s + d.value, 0);
                             return (
                                 <div key={title}>
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{title}</p>
-                                    <ResponsiveContainer width="100%" height={120}>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 text-center">{title}</p>
+                                    <ResponsiveContainer width="100%" height={140}>
                                         <PieChart>
-                                            <Pie data={chartData} cx="50%" cy="50%" outerRadius={50} dataKey="value" paddingAngle={2}>
+                                            <Pie data={chartData} cx="50%" cy="50%" outerRadius={60} dataKey="value" paddingAngle={2}>
                                                 {chartData.map((d, i) => <Cell key={i} fill={colors[d.name] || '#6b7280'} />)}
                                             </Pie>
                                             <Tooltip content={({ active, payload }) => {
                                                 if (!active || !payload?.length) return null;
                                                 const d = payload[0];
                                                 const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
-                                                return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p style={{ color: colors[d.name] }} className="font-bold">{d.name}</p><p className="text-gray-600">{d.value} · {pct}%</p></div>;
+                                                return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p style={{ color: colors[d.name] }} className="font-bold">{d.name}</p><p className="text-gray-600">{d.value} pacientes · {pct}%</p></div>;
                                             }} />
                                         </PieChart>
                                     </ResponsiveContainer>
-                                    <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center">
+                                    <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-2">
                                         {chartData.map(d => (
                                             <div key={d.name} className="flex items-center gap-1 text-xs">
                                                 <span className="w-2 h-2 rounded-full" style={{ background: colors[d.name] || '#6b7280' }} />
                                                 <span className="text-gray-500">{d.name}</span>
-                                                <span className="font-semibold text-gray-700">{d.value}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -641,72 +724,6 @@ export default function DashboardView() {
                             );
                         })}
                     </div>
-                </Card>
-            )}
-
-            {/* Medicamentos */}
-            {isVisible('medicamentos') && (
-                <Card className="p-5">
-                    <SectionHeader icon={faPills} title="Medicamentos más recetados" />
-                    {!medicamentos.length
-                        ? <p className="text-xs text-gray-400 italic">Sin datos</p>
-                        : <ResponsiveContainer width="100%" height={240}>
-                            <BarChart data={medicamentos} layout="vertical"
-                                    margin={{ top: 4, right: 20, left: 4, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} width={130} />
-                                <Tooltip content={({ active, payload, label }) => {
-                                    if (!active || !payload?.length) return null;
-                                    return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p className="font-bold text-gray-700">{label}</p><p className="text-purple-600">{payload[0].value} pacientes</p></div>;
-                                }} />
-                                <Bar dataKey="value" fill="#7c3aed" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    }
-                </Card>
-            )}
-
-            {/* Reingresos */}
-            {isVisible('reingresos') && reingresos && (
-                <Card className="p-5">
-                    <SectionHeader icon={faRotate} title="Reingresos" />
-                    <div className="grid grid-cols-3 gap-4">
-                        {[
-                            ['1 ingreso',   reingresos.unIngreso,   'bg-green-50  text-green-700',  'Primer ingreso'],
-                            ['2 ingresos',  reingresos.dosIngresos, 'bg-amber-50  text-amber-700',  'Reingresó una vez'],
-                            ['3+ ingresos', reingresos.tresMas,     'bg-red-50    text-red-700',    'Reingresos múltiples'],
-                        ].map(([label, value, cls, sub]) => (
-                            <div key={label} className={`rounded-xl p-4 text-center ${cls}`}>
-                                <p className="text-2xl font-bold">{value}</p>
-                                <p className="text-xs font-semibold uppercase tracking-wide mt-1">{label}</p>
-                                <p className="text-xs opacity-70 mt-0.5">{sub}</p>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-            )}
-
-            {/* Estancia promedio */}
-            {isVisible('estancia') && (
-                <Card className="p-5">
-                    <SectionHeader icon={faBed} title="Tiempo promedio de estancia (días)" />
-                    {!estancia.length
-                        ? <p className="text-xs text-gray-400 italic">Sin egresos registrados aún</p>
-                        : <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={estancia} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                                <Tooltip content={({ active, payload, label }) => {
-                                    if (!active || !payload?.length) return null;
-                                    const d = payload[0].payload;
-                                    return <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2 text-xs"><p className="font-bold text-gray-700">{label}</p><p className="text-teal-600">{d.promedio} días promedio</p><p className="text-gray-400">{d.total} egresos</p></div>;
-                                }} />
-                                <Bar dataKey="promedio" fill="#0f3460" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    }
                 </Card>
             )}
 

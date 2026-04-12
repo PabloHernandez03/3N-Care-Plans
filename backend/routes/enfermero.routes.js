@@ -1,5 +1,6 @@
 import express from "express";
 import Enfermero from "../models/Enfermeros.js";
+import JefeEnfermeria from "../models/JefeEnfermeria.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from 'mongoose';
@@ -12,10 +13,16 @@ const router = express.Router();
 // GET /equipo — enfermeros de la institución del jefe
 router.get('/equipo', authMiddleware, soloRoles('jefe', 'superadmin'), async (req, res) => {
     try {
-        const filtro = req.rol === 'jefe'
-            ? { institucionId: req.institucionId }
-            : {};
+        // 🟢 1. Validamos que el jefe tenga institución asignada
+        if (req.rol === 'jefe' && !req.institucionId) {
+            return res.status(400).json({ error: "Tu cuenta de Jefe no tiene un Hospital asignado. Crea una cuenta nueva." });
+        }
+
+        const filtro = req.rol === 'jefe' ? { institucionId: req.institucionId } : {};
         const equipo = await Enfermero.find(filtro).select('-cuenta.password_hash');
+
+        // Si el equipo está vacío, devolvemos array vacío rápido
+        if (equipo.length === 0) return res.json([]);
 
         // Contar pacientes por enfermero
         const ids = equipo.map(e => e._id);
@@ -52,6 +59,11 @@ router.post('/crear', authMiddleware, soloRoles('jefe', 'superadmin'), async (re
         const existe = await Enfermero.findOne({ 'cuenta.correo_electronico': correo_electronico });
         if (existe) return res.status(409).json({ error: 'Ya existe una cuenta con ese correo' });
 
+        // 🟢 2. Bloqueamos si el Jefe no tiene hospital
+        if (req.rol === 'jefe' && !req.institucionId) {
+            return res.status(400).json({ error: "No puedes crear enfermeros porque tu cuenta no tiene Hospital asignado." });
+        }
+
         const ultimo   = await Enfermero.findOne().sort({ 'cuenta.id_interno': -1 });
         const nuevoId  = (ultimo?.cuenta?.id_interno || 0) + 1;
         const hash     = await bcrypt.hash(password, 10);
@@ -64,9 +76,15 @@ router.post('/crear', authMiddleware, soloRoles('jefe', 'superadmin'), async (re
                 rol:                'enfermero',
                 estado_cuenta:      'activo'
             },
-            identidad: { nombre, apellido_paterno, apellido_materno },
-            datos_laborales: { turno, area_asignada, esta_activo: true },
-            institucionId: req.rol === 'jefe' ? req.institucionId : req.body.institucionId || null,
+            identidad: { nombre, apellido_paterno, apellido_materno, cedula_profesional, curp_dni },
+            contacto: { telefono },
+            direccion: { calle, ciudad, estado },
+            perfil_profesional: { grado_academico, institucion_egreso },
+            datos_laborales: { unidad_hospitalaria, area_asignada, turno, esta_activo: true },
+            
+            // 🟢 3. Asignación limpia y directa gracias al middleware
+            institucionId: req.rol === 'jefe' ? req.institucionId : (req.body.institucionId || null),
+            
             metadatos: { creado_el: new Date() }
         });
 

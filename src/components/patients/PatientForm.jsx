@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faCalendar, faHeartPulse } from '@fortawesome/free-solid-svg-icons';
 import api from '@/utils/api';
 
 const calcularEdad = (fechaStr) => {
@@ -30,12 +30,35 @@ const Card = ({ children, className = "" }) => (
     </div>
 );
 
+// 🟢 Añadimos SectionTitle para mantener el diseño
+const SectionTitle = ({ icon, children }) => (
+    <div className="col-span-full flex items-center gap-3 mt-4 mb-2">
+        <div className="w-8 h-8 rounded-lg bg-[#16a09e] flex items-center justify-center text-white text-base shrink-0">
+            <FontAwesomeIcon icon={icon} />
+        </div>
+        <h2 className="text-base font-semibold tracking-wide text-[#0f3460] uppercase">
+            {children}
+        </h2>
+        <div className="flex-1 h-px bg-[#16a09e]/20" />
+    </div>
+);
+
 export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
     const [edad, setEdad] = useState(null);
     const [sexo, setSexo] = useState('');
     const [tipoSangre, setTipoSangre] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // 🟢 ESTADOS PARA SIGNOS VITALES
+    const [signos, setSignos] = useState({
+        frecuenciaCardiaca: '', sistolica: '', diastolica: '',
+        frecuenciaRespiratoria: '', temperatura: '', saturacionOxigeno: '',
+        glucosa: '', peso: '', talla: '', dolor: '', observaciones: ''
+    });
+    
+    const handleSigno = (e) => setSignos(p => ({ ...p, [e.target.name]: e.target.value }));
+    const haySignos = Object.values(signos).some(v => v !== '');
 
     const handleDate = (e) => {
         let val = e.target.value.replace(/\D/g, '');
@@ -71,7 +94,35 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
         };
 
         try {
+            // 1. Crear al paciente
             const res = await api.post('/api/patients', payload);
+            
+            // Extraer el ID seguro (dependiendo de cómo responda tu backend)
+            const nuevoPacienteId = res.data.patient?._id || res.data._id;
+
+            // 2. 🟢 GUARDAR SIGNOS VITALES SI EL USUARIO LLENÓ ALGO
+            if (haySignos && nuevoPacienteId) {
+                const vitalsPayload = {
+                    pacienteId: nuevoPacienteId,
+                    signos: {
+                        frecuenciaCardiaca: signos.frecuenciaCardiaca ? Number(signos.frecuenciaCardiaca) : undefined,
+                        presionArterial: (signos.sistolica || signos.diastolica) ? {
+                            sistolica: signos.sistolica ? Number(signos.sistolica) : undefined,
+                            diastolica: signos.diastolica ? Number(signos.diastolica) : undefined,
+                        } : undefined,
+                        frecuenciaRespiratoria: signos.frecuenciaRespiratoria ? Number(signos.frecuenciaRespiratoria) : undefined,
+                        temperatura: signos.temperatura ? Number(signos.temperatura) : undefined,
+                        saturacionOxigeno: signos.saturacionOxigeno ? Number(signos.saturacionOxigeno) : undefined,
+                        glucosa: signos.glucosa ? Number(signos.glucosa) : undefined,
+                        peso: signos.peso ? Number(signos.peso) : undefined,
+                        talla: signos.talla ? Number(signos.talla) : undefined,
+                        dolor: signos.dolor ? Number(signos.dolor) : undefined,
+                    },
+                    observaciones: signos.observaciones || ''
+                };
+                
+                await api.post('/api/vitalsigns', vitalsPayload);
+            }
 
             showToast("Paciente registrado exitosamente", "success");
             onPatientSaved(res.data);
@@ -81,8 +132,8 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
             setError(msg);
             showToast(msg, 'error');
         } finally {
-        setLoading(false);
-    }
+            setLoading(false);
+        }
     };
 
     return (
@@ -90,7 +141,7 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
               className="space-y-6 font-sans">
 
             <div className="flex items-center gap-3 pb-4 border-b-2 border-[#0f3460]/10">
-                <div className="w-9 h-9 rounded-lg bg-primario flex items-center justify-center text-white">
+                <div className="w-9 h-9 rounded-lg bg-[#16a09e] flex items-center justify-center text-white">
                     <FontAwesomeIcon icon={faUser} />
                 </div>
                 <div>
@@ -135,7 +186,7 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
                            maxLength={10} pattern="\d{2}/\d{2}/\d{4}"
                            className={inputCls} required />
                     {edad !== null && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 bg-primario/10 text-[#0f3460] rounded-full px-3 py-1 text-xs font-semibold">
+                        <div className="mt-2 inline-flex items-center gap-1.5 bg-[#16a09e]/10 text-[#16a09e] rounded-full px-3 py-1 text-xs font-semibold">
                             <FontAwesomeIcon icon={faCalendar} /> {edad} años
                         </div>
                     )}
@@ -170,6 +221,119 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
                 </Card>
             </div>
 
+            {/* ══ SECCIÓN: SIGNOS VITALES ══ */}
+            <div className="grid grid-cols-1 gap-4">
+                <SectionTitle icon={faHeartPulse}>
+                    Signos vitales
+                    <span className="ml-2 text-xs font-normal text-gray-400 normal-case tracking-normal">opcional</span>
+                </SectionTitle>
+
+                <Card className="col-span-full">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {/* FC */}
+                        <div>
+                            <FieldLabel>FC <span className="text-gray-300 font-normal">bpm</span></FieldLabel>
+                            <input name="frecuenciaCardiaca" type="number" min="0" max="300"
+                                value={signos.frecuenciaCardiaca} onChange={handleSigno}
+                                placeholder="72" className={inputCls} />
+                        </div>
+
+                        {/* PA */}
+                        <div>
+                            <FieldLabel>PA <span className="text-gray-300 font-normal">mmHg</span></FieldLabel>
+                            <div className="flex items-center gap-1">
+                                <input name="sistolica" type="number" min="0" max="300"
+                                    value={signos.sistolica} onChange={handleSigno}
+                                    placeholder="120" className={inputCls} />
+                                <span className="text-gray-400 text-sm font-bold">/</span>
+                                <input name="diastolica" type="number" min="0" max="200"
+                                    value={signos.diastolica} onChange={handleSigno}
+                                    placeholder="80" className={inputCls} />
+                            </div>
+                        </div>
+
+                        {/* FR */}
+                        <div>
+                            <FieldLabel>FR <span className="text-gray-300 font-normal">rpm</span></FieldLabel>
+                            <input name="frecuenciaRespiratoria" type="number" min="0" max="60"
+                                value={signos.frecuenciaRespiratoria} onChange={handleSigno}
+                                placeholder="16" className={inputCls} />
+                        </div>
+
+                        {/* Temperatura */}
+                        <div>
+                            <FieldLabel>Temp <span className="text-gray-300 font-normal">°C</span></FieldLabel>
+                            <input name="temperatura" type="number" step="0.1" min="30" max="45"
+                                value={signos.temperatura} onChange={handleSigno}
+                                placeholder="36.5" className={inputCls} />
+                        </div>
+
+                        {/* SpO2 */}
+                        <div>
+                            <FieldLabel>SpO₂ <span className="text-gray-300 font-normal">%</span></FieldLabel>
+                            <input name="saturacionOxigeno" type="number" min="0" max="100"
+                                value={signos.saturacionOxigeno} onChange={handleSigno}
+                                placeholder="98" className={inputCls} />
+                        </div>
+
+                        {/* Glucosa */}
+                        <div>
+                            <FieldLabel>Glucosa <span className="text-gray-300 font-normal">mg/dL</span></FieldLabel>
+                            <input name="glucosa" type="number" min="0"
+                                value={signos.glucosa} onChange={handleSigno}
+                                placeholder="90" className={inputCls} />
+                        </div>
+
+                        {/* Peso */}
+                        <div>
+                            <FieldLabel>Peso <span className="text-gray-300 font-normal">kg</span></FieldLabel>
+                            <input name="peso" type="number" step="0.1" min="0"
+                                value={signos.peso} onChange={handleSigno}
+                                placeholder="70" className={inputCls} />
+                        </div>
+
+                        {/* Talla */}
+                        <div>
+                            <FieldLabel>Talla <span className="text-gray-300 font-normal">cm</span></FieldLabel>
+                            <input name="talla" type="number" min="0"
+                                value={signos.talla} onChange={handleSigno}
+                                placeholder="170" className={inputCls} />
+                        </div>
+
+                        {/* Dolor */}
+                        <div>
+                            <FieldLabel>Dolor <span className="text-gray-300 font-normal">0–10</span></FieldLabel>
+                            <input name="dolor" type="number" min="0" max="10"
+                                value={signos.dolor} onChange={handleSigno}
+                                placeholder="0" className={inputCls} />
+                            {signos.dolor !== '' && (
+                                <div className="mt-1.5 flex items-center gap-1">
+                                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                        <div className="h-full rounded-full transition-all"
+                                            style={{
+                                                width: `${(signos.dolor / 10) * 100}%`,
+                                                background: signos.dolor <= 3 ? '#22c55e'
+                                                    : signos.dolor <= 6 ? '#f59e0b' : '#ef4444'
+                                            }} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-gray-400">{signos.dolor}/10</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Observaciones */}
+                        <div className="col-span-2 sm:col-span-3 lg:col-span-5">
+                            <FieldLabel>Observaciones</FieldLabel>
+                            <textarea name="observaciones" rows={2}
+                                    value={signos.observaciones || ''}
+                                    onChange={handleSigno}
+                                    placeholder="Notas adicionales sobre los signos vitales..."
+                                    className={`${inputCls} resize-none`} />
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
             {error && (
                 <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 font-medium">
                     ⚠ {error}
@@ -182,7 +346,7 @@ export default function PatientForm({ onCancel, onPatientSaved, showToast }) {
                     Cancelar
                 </button>
                 <button type="submit" disabled={loading}
-                        className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primario text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all shadow-md shadow-[#0f3460]/20 disabled:opacity-60 disabled:cursor-not-allowed">
+                        className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-[#16a09e] text-white text-sm font-semibold hover:bg-[#128a88] active:scale-95 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
                     {loading ? 'Guardando…' : 'Registrar paciente'}
                 </button>
             </div>

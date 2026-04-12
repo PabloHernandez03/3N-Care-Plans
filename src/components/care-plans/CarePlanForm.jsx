@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUser, faPills, faHospital, faLeaf, faClipboard, 
-    faCalendar, faMagnifyingGlass, faChevronDown, faHeartPulse
+    faCalendar, faMagnifyingGlass, faChevronDown, faHeartPulse, faSpinner, faCheck, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import api from '@/utils/api';
 
@@ -107,9 +107,10 @@ const RadioItem = ({ name, value, label, className = "" }) => (
 /* ─── Componente principal ───────────────────────────────────────────────── */
 const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
     const [patientList, setPatientList]         = useState([]);
-    const [patientsWithActivePlans, setPatientsWithActivePlans] = useState(new Set()); // 🟢 NUEVO: Set de IDs con planes activos
+    const [patientsWithActivePlans, setPatientsWithActivePlans] = useState(new Set()); 
+    const [loading, setLoading] = useState(false);
     
-    // 🟢 NUEVOS ESTADOS PARA EL DROPDOWN PERSONALIZADO
+    // ESTADOS PARA EL DROPDOWN PERSONALIZADO
     const [isDropdownOpen, setIsDropdownOpen]   = useState(false);
     const [patientSearchTerm, setPatientSearchTerm] = useState("");
     const dropdownRef = useRef(null);
@@ -160,7 +161,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             try {
                 const [patRes, planRes] = await Promise.all([
                     api.get('/api/patients'),
-                    api.get('/api/careplans').catch(() => ({ data: [] })), // ← no rompe si falla
+                    api.get('/api/careplans').catch(() => ({ data: [] })), 
                 ]);
 
                 const patData = patRes.data || [];
@@ -186,7 +187,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         fetchData();
     }, []);
 
-    // 🟢 NUEVO: Cerrar dropdown al hacer clic afuera
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -219,6 +219,8 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+
         const form = new FormData(e.target);
         const data = Object.fromEntries(form.entries());
 
@@ -245,10 +247,33 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             diagnosticoMedico: data.medicalDiagnosis
         };
 
+        // 🟢 PREPARAMOS EL PAYLOAD DE SIGNOS VITALES
+        const vitalsPayload = {
+            signos: {
+                frecuenciaCardiaca: signos.frecuenciaCardiaca ? Number(signos.frecuenciaCardiaca) : undefined,
+                presionArterial: (signos.sistolica || signos.diastolica) ? {
+                    sistolica: signos.sistolica ? Number(signos.sistolica) : undefined,
+                    diastolica: signos.diastolica ? Number(signos.diastolica) : undefined,
+                } : undefined,
+                frecuenciaRespiratoria: signos.frecuenciaRespiratoria ? Number(signos.frecuenciaRespiratoria) : undefined,
+                temperatura: signos.temperatura ? Number(signos.temperatura) : undefined,
+                saturacionOxigeno: signos.saturacionOxigeno ? Number(signos.saturacionOxigeno) : undefined,
+                glucosa: signos.glucosa ? Number(signos.glucosa) : undefined,
+                peso: signos.peso ? Number(signos.peso) : undefined,
+                talla: signos.talla ? Number(signos.talla) : undefined,
+                dolor: signos.dolor ? Number(signos.dolor) : undefined,
+            },
+            observaciones: signos.observaciones || ''
+        };
+
         if (selectedOption === "") {
+            // ==========================================
+            // CASO A: PACIENTE NUEVO
+            // ==========================================
             const curpExists = patientList.some(p => p.curp.toUpperCase() === data.curp.toUpperCase());
             if (curpExists) { 
                 showToast("Ya existe un registro con esta CURP.", "error"); 
+                setLoading(false);
                 return; 
             }
             
@@ -257,23 +282,42 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                     ...patientPayload,
                     ingreso: ingresoPayload
                 };
-                    const res = await api.post('/api/patients', payloadCompleto);
-                    if (res.status === 201) {
-                        const savedData = res.data;
-                        const pacienteReal = savedData.patient;
-                        pacienteReal.ingresoId = savedData.admission?._id;
-                        showToast("Paciente e ingreso creados correctamente", "success");
-                        onPatientSaved(pacienteReal);
-                    } else { 
-                        showToast(`Error: ${res.data.error || 'Error desconocido'}`, "error");
+                
+                const res = await api.post('/api/patients', payloadCompleto);
+                
+                if (res.status === 201 || res.status === 200) {
+                    const savedData = res.data;
+                    
+                    // 🟢 FIX: Extracción segura del paciente creado (igual a PatientForm)
+                    const pacienteReal = savedData.patient || savedData;
+                    const nuevoPacienteId = pacienteReal._id;
+
+                    pacienteReal.ingresoId = savedData.admission?._id || savedData.ingresoId;
+
+                    // 🟢 GUARDAR SIGNOS VITALES DEL PACIENTE NUEVO
+                    if (haySignos && nuevoPacienteId) {
+                        await api.post('/api/vitalsigns', {
+                            pacienteId: nuevoPacienteId,
+                            ...vitalsPayload
+                        });
                     }
+
+                    showToast("Paciente e ingreso creados correctamente", "success");
+                    onPatientSaved(pacienteReal);
+                } else { 
+                    showToast(`Error: ${res.data?.error || 'Error desconocido'}`, "error");
+                }
             } catch (err) {
                 const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
                 showToast(msg, "error");
+            } finally {
+                setLoading(false);
             }
         } else {
+            // ==========================================
+            // CASO B: PACIENTE EXISTENTE
+            // ==========================================
             try {
-
                 await api.put(`/api/patients/${selectedOption}`, {
                     nombre: patientPayload.nombre,
                     curp: patientPayload.curp,
@@ -301,32 +345,23 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                     nombre: patientPayload.nombre,
                     ingresoId: savedAdmission._id || savedAdmission.data?._id
                 };
+
+                // 🟢 GUARDAR SIGNOS VITALES DEL PACIENTE EXISTENTE
+                if (haySignos) {
+                    await api.post('/api/vitalsigns', {
+                        pacienteId: selectedOption, 
+                        ...vitalsPayload
+                    });
+                }
+
                 showToast("Expediente y admisión actualizados correctamente", "success");
                 onPatientSaved(pacienteParaBuilder);
-                if (haySignos) {
-                    const pacienteId = selectedOption || savedData.patient?.id;
-                    await api.post('/api/vitalsigns', {
-                        pacienteId,
-                        signos: {
-                            frecuenciaCardiaca:     signos.frecuenciaCardiaca     ? Number(signos.frecuenciaCardiaca)     : undefined,
-                            presionArterial: (signos.sistolica || signos.diastolica) ? {
-                                sistolica:  signos.sistolica  ? Number(signos.sistolica)  : undefined,
-                                diastolica: signos.diastolica ? Number(signos.diastolica) : undefined,
-                            } : undefined,
-                            frecuenciaRespiratoria: signos.frecuenciaRespiratoria ? Number(signos.frecuenciaRespiratoria) : undefined,
-                            temperatura:            signos.temperatura            ? Number(signos.temperatura)            : undefined,
-                            saturacionOxigeno:      signos.saturacionOxigeno      ? Number(signos.saturacionOxigeno)      : undefined,
-                            glucosa:                signos.glucosa                ? Number(signos.glucosa)                : undefined,
-                            peso:                   signos.peso                   ? Number(signos.peso)                   : undefined,
-                            talla:                  signos.talla                  ? Number(signos.talla)                  : undefined,
-                            dolor:                  signos.dolor                  ? Number(signos.dolor)                  : undefined,
-                        },
-                        observaciones: signos.observaciones || '',
-                                    })
-                }
+                
             } catch (err) {
                 const msg = err.response?.data?.error || "No se pudo conectar con el servidor.";
                 showToast(msg, "error");
+            } finally {
+                setLoading(false);
             }
         }
     };
@@ -345,11 +380,10 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
         setMedicamentos([{ nombre: "", dosis: "", frecuencia: "", via: "" }]);
     };
 
-    // 🟢 ACTUALIZADO: Recibe directamente el ID desde el Dropdown
     const handlePatientSelect = (id) => {
         setSelectedOption(id);
         setIsDropdownOpen(false);
-        setPatientSearchTerm(""); // Limpiamos el buscador al elegir
+        setPatientSearchTerm(""); 
 
         if (id === "") { resetForm(); return; }
 
@@ -447,7 +481,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
             .catch(err => console.error("Error cargando expediente:", err));
     };
 
-    // 🟢 NUEVO: Lógica de filtrado del buscador de pacientes
     const filteredPatients = patientList.filter(p => {
         if (!patientSearchTerm) return true;
         const term = patientSearchTerm.toLowerCase();
@@ -485,7 +518,6 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
 
                 <Card className="col-span-full">
                     <FieldLabel>Seleccionar paciente existente</FieldLabel>
-                    {/* 🟢 NUEVO DROPDOWN PERSONALIZADO CON BUSCADOR */}
                     <div className="relative" ref={dropdownRef}>
                         <div 
                             className={`${inputCls} flex items-center justify-between cursor-pointer`}
@@ -1009,7 +1041,7 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                                             style={{
                                                 width: `${(signos.dolor / 10) * 100}%`,
                                                 background: signos.dolor <= 3 ? '#22c55e'
-                                                        : signos.dolor <= 6 ? '#f59e0b' : '#ef4444'
+                                                    : signos.dolor <= 6 ? '#f59e0b' : '#ef4444'
                                             }} />
                                     </div>
                                     <span className="text-[10px] font-bold text-gray-400">{signos.dolor}/10</span>
@@ -1045,9 +1077,17 @@ const CarePlanForm = ({ onCancel, onPatientSaved, showToast }) => {
                         className="w-full sm:w-auto px-6 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all">
                     Cancelar
                 </button>
-                <button type="submit"
-                        className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primario text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all shadow-md shadow-[#0f3460]/20">
-                    {selectedOption === "" ? "Registrar paciente" : "Guardar cambios y Admisión"}
+                <button type="submit" disabled={loading}
+                        className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primario text-white text-sm font-semibold hover:bg-[#0a2547] active:scale-95 transition-all shadow-md shadow-[#0f3460]/20 disabled:opacity-60 disabled:cursor-not-allowed">
+                    {loading ? (
+                        <>
+                            <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Guardando…
+                        </>
+                    ) : (
+                        <>
+                            {selectedOption === "" ? "Registrar paciente" : "Guardar cambios y Admisión"}
+                        </>
+                    )}
                 </button>
             </div>
         </form>
