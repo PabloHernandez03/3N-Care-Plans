@@ -102,7 +102,7 @@ El sistema utiliza control de acceso basado en roles (ACL) a través de JWT:
 Asegúrate de tener Node.js ≥ 18 y MongoDB ejecutándose.
 
 ```bash
-git clone [https://github.com/PabloHernandez03/3N-Care-Plans.git](https://github.com/PabloHernandez03/3N-Care-Plans.git)
+git clone https://github.com/PabloHernandez03/3N-Care-Plans.git
 cd 3N-Care-Plans
 
 # Instalar dependencias del frontend (raíz)
