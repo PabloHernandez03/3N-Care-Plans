@@ -1,5 +1,6 @@
 import express from "express";
 import JefeEnfermeria from "../models/JefeEnfermeria.js"; 
+import Institucion from "../models/Institucion.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -50,6 +51,80 @@ router.post("/login", async (req, res) => {
     console.error("Error en Login Jefe:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
+});
+
+// ── POST /registro — Registro de nuevo Jefe y creación de su Institución
+router.post("/registro", async (req, res) => {
+    try {
+        const {
+            nombre, apellido_paterno, apellido_materno, cedula_profesional, curp_dni,
+            telefono, calle, ciudad, estado,
+            grado_academico, institucion_egreso,
+            unidad_hospitalaria, area_asignada, turno,
+            correo_electronico, password,
+            nombre_institucion // 🟢 El campo especial que manda el frontend
+        } = req.body;
+
+        // 1. Verificar que el correo no esté en uso por otro Jefe
+        const existeJefe = await JefeEnfermeria.findOne({ "cuenta.correo_electronico": correo_electronico });
+        if (existeJefe) {
+            return res.status(400).json({ error: "Este correo electrónico ya está registrado como Jefe." });
+        }
+
+        // 2. Hashear la contraseña
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(password, salt);
+
+        // 3. 🟢 CREAR LA INSTITUCIÓN (Clínica/Hospital)
+        const nuevaInstitucion = await Institucion.create({
+            nombre: nombre_institucion || unidad_hospitalaria, // Usamos el nombre que puso en el form
+            tipo: 'hospital', // Por defecto, o podrías pedirlo en el form
+            direccion: { calle, ciudad, estado }
+        });
+
+        // 4. Calcular el id_interno secuencial
+        const ultimoJefe = await JefeEnfermeria.findOne().sort({ "cuenta.id_interno": -1 });
+        const nuevoIdInterno = (ultimoJefe?.cuenta?.id_interno || 0) + 1;
+
+        // 5. 🟢 CREAR AL JEFE Y ENLAZARLO A LA INSTITUCIÓN CREADA
+        const nuevoJefe = new JefeEnfermeria({
+            cuenta: {
+                id_interno: nuevoIdInterno,
+                correo_electronico: correo_electronico,
+                password_hash: password_hash,
+                rol: "jefe",
+                estado_cuenta: "activo"
+            },
+            identidad: {
+                nombre, apellido_paterno, apellido_materno,
+                cedula_profesional, curp_dni
+            },
+            contacto: { telefono },
+            direccion: { calle, ciudad, estado },
+            perfil_profesional: {
+                grado_academico,
+                especialidades: [],
+                institucion_egreso
+            },
+            datos_laborales: {
+                unidad_hospitalaria, 
+                area_asignada, 
+                turno,
+                fecha_ingreso: new Date().toISOString().split('T')[0],
+                esta_activo: true,
+                // AQUÍ OCURRE EL ENLACE MÁGICO 👇
+                institucionId: nuevaInstitucion._id, 
+                enfermeros_a_cargo: []
+            }
+        });
+
+        await nuevoJefe.save();
+        res.status(201).json({ mensaje: "Jefatura e Institución creadas exitosamente." });
+
+    } catch (error) {
+        console.error("Error en registro de Jefe:", error);
+        res.status(500).json({ error: "Falla interna del servidor al procesar el registro del Jefe." });
+    }
 });
 
 // GET /perfil/:id — Obtener datos del jefe

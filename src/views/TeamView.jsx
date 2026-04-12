@@ -19,6 +19,17 @@ function getNombreCompleto(identidad = {}) {
         .filter(Boolean).join(' ');
 }
 
+/* ─── Input Helper (Fuera del Modal para evitar perder el foco) ──────────── */
+const inputCls = "w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20 transition";
+
+const Field = ({ name, label, value, onChange, type = 'text', placeholder = '', required = true, className = '' }) => (
+    <div className={className}>
+        <p className="text-xs text-gray-400 mb-1">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</p>
+        <input type={type} name={name} value={value} onChange={onChange}
+               placeholder={placeholder} required={required} className={inputCls} />
+    </div>
+);
+
 /* ─── Modal crear enfermero ─────────────────────────────────────────────── */
 function CrearEnfermeroModal({ onClose, onCreated }) {
     const [formData, setFormData] = useState({
@@ -31,8 +42,6 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
     });
     const [error,   setError]   = useState('');
     const [loading, setLoading] = useState(false);
-
-    const inputCls = "w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-800 focus:outline-none focus:border-[#16a09e] focus:bg-white focus:ring-2 focus:ring-[#16a09e]/20 transition";
 
     const handle = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -53,14 +62,6 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
             setLoading(false);
         }
     }
-
-    const Field = ({ name, label, type = 'text', placeholder = '', required = true, className = '' }) => (
-        <div className={className}>
-            <p className="text-xs text-gray-400 mb-1">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</p>
-            <input type={type} name={name} value={formData[name]} onChange={handle}
-                   placeholder={placeholder} required={required} className={inputCls} />
-        </div>
-    );
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -96,13 +97,13 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
                             1. Identidad
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <Field name="nombre"          label="Nombre(s)"      />
-                            <Field name="apellido_paterno" label="Ap. paterno"   />
-                            <Field name="apellido_materno" label="Ap. materno" required={false} />
+                            <Field name="nombre" label="Nombre(s)" value={formData.nombre} onChange={handle} />
+                            <Field name="apellido_paterno" label="Ap. paterno" value={formData.apellido_paterno} onChange={handle} />
+                            <Field name="apellido_materno" label="Ap. materno" value={formData.apellido_materno} onChange={handle} required={false} />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                            <Field name="cedula_profesional" label="Cédula profesional" />
-                            <Field name="curp_dni"           label="CURP" placeholder="18 caracteres" />
+                            <Field name="cedula_profesional" label="Cédula profesional" value={formData.cedula_profesional} onChange={handle} />
+                            <Field name="curp_dni" label="CURP" placeholder="18 caracteres" value={formData.curp_dni} onChange={handle} />
                         </div>
                     </div>
 
@@ -112,10 +113,10 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
                             2. Ubicación y contacto
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <Field name="telefono" label="Teléfono" />
-                            <Field name="ciudad"   label="Ciudad"   />
-                            <Field name="estado"   label="Estado"   />
-                            <Field name="calle"    label="Calle y número" />
+                            <Field name="telefono" label="Teléfono" value={formData.telefono} onChange={handle} />
+                            <Field name="ciudad" label="Ciudad" value={formData.ciudad} onChange={handle} />
+                            <Field name="estado" label="Estado" value={formData.estado} onChange={handle} />
+                            <Field name="calle" label="Calle y número" value={formData.calle} onChange={handle} />
                         </div>
                     </div>
 
@@ -125,10 +126,10 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
                             3. Datos laborales y académicos
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <Field name="unidad_hospitalaria" label="Unidad hospitalaria" placeholder="Ej. Hospital Civil" />
-                            <Field name="area_asignada"       label="Área asignada"       placeholder="Ej. Urgencias" />
-                            <Field name="grado_academico"     label="Grado académico"     />
-                            <Field name="institucion_egreso"  label="Institución de egreso" />
+                            <Field name="unidad_hospitalaria" label="Unidad hospitalaria" placeholder="Ej. Hospital Civil" value={formData.unidad_hospitalaria} onChange={handle} />
+                            <Field name="area_asignada" label="Área asignada" placeholder="Ej. Urgencias" value={formData.area_asignada} onChange={handle} />
+                            <Field name="grado_academico" label="Grado académico" value={formData.grado_academico} onChange={handle} />
+                            <Field name="institucion_egreso" label="Institución de egreso" value={formData.institucion_egreso} onChange={handle} />
                         </div>
                         <div className="mt-3">
                             <p className="text-xs text-gray-400 mb-1">Turno <span className="text-red-400">*</span></p>
@@ -148,9 +149,9 @@ function CrearEnfermeroModal({ onClose, onCreated }) {
                             4. Credenciales
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <Field name="correo_electronico" label="Correo electrónico" type="email" className="sm:col-span-3" />
-                            <Field name="password"  label="Contraseña"         type="password" className="sm:col-span-1" />
-                            <Field name="confirmar" label="Confirmar contraseña" type="password" className="sm:col-span-2" />
+                            <Field name="correo_electronico" label="Correo electrónico" type="email" className="sm:col-span-3" value={formData.correo_electronico} onChange={handle} />
+                            <Field name="password" label="Contraseña" type="password" className="sm:col-span-1" value={formData.password} onChange={handle} />
+                            <Field name="confirmar" label="Confirmar contraseña" type="password" className="sm:col-span-2" value={formData.confirmar} onChange={handle} />
                         </div>
                     </div>
 

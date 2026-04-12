@@ -10,6 +10,7 @@ import ProfileView from '../views/ProfileView.jsx';
 import DictionaryView from '../views/DictionaryView.jsx';
 import AdminDashboardView from '../views/AdminDashboardView.jsx';
 import TeamView from '../views/TeamView.jsx';
+import DashboardJefe from '../views/DashboardJefe.jsx';
 
 // Componentes de Protección
 import ProtegerRutas from '../components/auth/ProtegerRutas.jsx';
@@ -41,7 +42,9 @@ export default function Router() {
                         {/* Vistas de Jefe de enfermeria */}
                         <Route element={<JefeRoute />}>
                             <Route path="/team" element={<TeamView />} />
-                        </Route>
+                            {/* 🟢 Cambiamos el path a uno único */}
+                            <Route path="/jefe-dashboard" element={<DashboardJefe />} />
+                        </Route>        
 
                         {/*Vistas de Administrador*/}
                         <Route element={<AdminRoute />}>

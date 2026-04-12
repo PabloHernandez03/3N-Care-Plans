@@ -4,29 +4,36 @@ import {
     faUser, faMagnifyingGlass, faStethoscope, faBullseye, faHandHoldingMedical, 
     faChevronDown, faChevronRight, faTimes, faCheck, faHeart, faAppleAlt, faToilet, 
     faWalking, faBrain, faUserFriends, faShieldAlt, faProcedures, faSeedling, faBiohazard, 
-    faCogs, faBookMedical 
+    faCogs, faBookMedical, faEye, faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import api from '@/utils/api';
 
 const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
-    // ESTADOS
+    // ESTADOS NANDA
     const [nandasGrouped, setNandasGrouped] = useState({});
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-
-    // ACORDEÓN NANDA
     const [expandedDomain, setExpandedDomain] = useState(null);
     const [expandedClass, setExpandedClass] = useState(null);
-
     const [selectedNanda, setSelectedNanda] = useState(null);
+
+    // ESTADOS NOC
     const [nocsSugeridos, setNocsSugeridos] = useState([]);
     const [evaluacionesNoc, setEvaluacionesNoc] = useState({}); 
     const [evaluatingNoc, setEvaluatingNoc] = useState(null); 
     const [currentScores, setCurrentScores] = useState({}); 
+    const [nocSearchTerm, setNocSearchTerm] = useState(""); // 🟢 Buscador NOC
+    const [previewNoc, setPreviewNoc] = useState(null); // 🟢 Previsualización NOC
+    const [previewNocData, setPreviewNocData] = useState({});
+
+    // ESTADOS NIC
     const [nicsBase, setNicsBase] = useState([]); 
     const [nicsCalculados, setNicsCalculados] = useState([]); 
     const [selectedNics, setSelectedNics] = useState([]); 
+    const [nicSearchTerm, setNicSearchTerm] = useState(""); // 🟢 Buscador NIC
+    const [previewNic, setPreviewNic] = useState(null); // 🟢 Previsualización NIC
+    const [previewNicData, setPreviewNicData] = useState({});
 
     const domainIconMap = {
         1: faHeart, 2: faAppleAlt, 3: faToilet, 4: faWalking, 5: faBrain, 
@@ -84,6 +91,8 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
         setNicsBase([]);
         setNicsCalculados([]);
         setSelectedNics([]);
+        setNocSearchTerm("");
+        setNicSearchTerm("");
 
         try {
             const res = await api.get(`/api/noc/from-nanda/${nanda.codigo}`);
@@ -115,11 +124,46 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
         setSelectedNanda(null); setSearchTerm(""); setNocsSugeridos([]);
         setEvaluacionesNoc({}); setNicsBase([]); setNicsCalculados([]); setSelectedNics([]);
         setExpandedDomain(null); setExpandedClass(null);
+        setPreviewNoc(null); setPreviewNic(null);
     };
 
-    const openEvaluationModal = (noc) => {
-        setCurrentScores(evaluacionesNoc[noc.codigo]?.indicadores || {});
-        setEvaluatingNoc(noc);
+    // 🟢 PREVISUALIZAR NOC (FETCH DINÁMICO)
+    const handleToggleNocPreview = async (codigoNoc) => {
+        if (previewNoc === codigoNoc) {
+            setPreviewNoc(null);
+            return;
+        }
+        setPreviewNoc(codigoNoc);
+        if (!previewNocData[codigoNoc]) {
+            try {
+                const res = await api.get(`/api/noc/${codigoNoc}`);
+                setPreviewNocData(prev => ({ ...prev, [codigoNoc]: res.data.indicadores || [] }));
+            } catch (e) { console.error("Error al cargar detalles del NOC", e); }
+        }
+    };
+
+    // 🟢 PREVISUALIZAR NIC (FETCH DINÁMICO)
+    const handleToggleNicPreview = async (codigoNic) => {
+        if (previewNic === codigoNic) {
+            setPreviewNic(null);
+            return;
+        }
+        setPreviewNic(codigoNic);
+        if (!previewNicData[codigoNic]) {
+            try {
+                const res = await api.get(`/api/nic/${codigoNic}`);
+                setPreviewNicData(prev => ({ ...prev, [codigoNic]: res.data.actividades || [] }));
+            } catch (e) { console.error("Error al cargar actividades del NIC", e); }
+        }
+    };
+
+    const openEvaluationModal = async (noc) => {
+        // Asegurarnos de tener los indicadores antes de abrir el modal
+        try {
+            const res = await api.get(`/api/noc/${noc.codigo}`);
+            setEvaluatingNoc(res.data);
+            setCurrentScores(evaluacionesNoc[noc.codigo]?.indicadores || {});
+        } catch (e) { console.error(e); }
     };
 
     const handleScoreChange = (indicadorCodigo, score) => {
@@ -218,11 +262,21 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
         }
     };
 
-    // FUNCIONES DE AGRUPACIÓN DINÁMICA (DIVISION EN 3 PARTES)
+    // 🟢 FILTROS DE BÚSQUEDA
+    const filteredNocs = nocsSugeridos.filter(n => 
+        n.nombre.toLowerCase().includes(nocSearchTerm.toLowerCase()) || 
+        n.codigo.includes(nocSearchTerm)
+    );
+
+    const filteredNics = nicsCalculados.filter(n => 
+        n.nombre.toLowerCase().includes(nicSearchTerm.toLowerCase()) || 
+        n.codigo.includes(nicSearchTerm)
+    );
+
     const getGroupedNocs = () => {
         const groups = { alta: [], media: [], baja: [] };
-        nocsSugeridos.forEach((noc, idx) => {
-            const ratio = idx / nocsSugeridos.length;
+        filteredNocs.forEach((noc, idx) => {
+            const ratio = idx / filteredNocs.length;
             if (ratio < 1/3) groups.alta.push(noc);
             else if (ratio < 2/3) groups.media.push(noc);
             else groups.baja.push(noc);
@@ -231,9 +285,9 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
     };
 
     const getGroupedNics = () => {
-        if (nicsCalculados.length === 0) return { estrella: null, alta: [], media: [], baja: [] };
-        const estrella = nicsCalculados[0]; // La primera es la principal
-        const rest = nicsCalculados.slice(1);
+        if (filteredNics.length === 0) return { estrella: null, alta: [], media: [], baja: [] };
+        const estrella = filteredNics[0]; // La primera es la principal
+        const rest = filteredNics.slice(1);
         const groups = { estrella, alta: [], media: [], baja: [] };
         
         rest.forEach((nic, idx) => {
@@ -250,7 +304,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
     const groupedNics = getGroupedNics();
 
     const SectionTitle = ({ children, step }) => (
-        <div className="flex items-center gap-3 mb-6 mt-2">
+        <div className="flex items-center gap-3 mb-4 mt-2">
             {step && <div className="w-10 h-10 rounded-xl bg-[#16a09e] flex items-center justify-center text-white text-base font-black shrink-0 shadow-sm">{step}</div>}
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-[#0f3460]">
                 {children}
@@ -281,7 +335,7 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                 <div className="animate-fade-in space-y-6">
                     <SectionTitle step="1">Diagnóstico (NANDA)</SectionTitle>
 
-                    {/* Buscador */}
+                    {/* Buscador NANDA */}
                     <div className="relative mb-6">
                         <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#16a09e] text-lg" />
                         <input 
@@ -403,9 +457,24 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                         </button>
                     </div>
 
+                    {/* SECCIÓN NOC */}
                     <div>
                         <SectionTitle step="2">Resultados Esperados (NOC)</SectionTitle>
-                        <p className="text-sm text-gray-500 mb-5 md:ml-14">Evalúe el estado inicial del paciente. Las metas están ordenadas por prioridad.</p>
+                        
+                        <div className="md:ml-14 mb-4">
+                            <p className="text-sm text-gray-500 mb-3">Busque o evalúe el estado inicial del paciente.</p>
+                            {/* Buscador NOC */}
+                            <div className="relative w-full md:w-1/2">
+                                <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Filtrar metas por nombre o código..." 
+                                    value={nocSearchTerm} 
+                                    onChange={(e) => setNocSearchTerm(e.target.value)} 
+                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-[#16a09e] focus:bg-white transition-all"
+                                />
+                            </div>
+                        </div>
                         
                         <div className="md:ml-14 space-y-6">
                             {[
@@ -418,12 +487,15 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                     <div className="grid grid-cols-1 gap-3">
                                         {group.data.map((noc) => {
                                             const isEvaluated = !!evaluacionesNoc[noc.codigo];
+                                            const isPreviewing = previewNoc === noc.codigo;
+                                            
                                             return (
                                                 <div key={noc.codigo} className={`p-5 rounded-2xl border transition-all ${isEvaluated ? 'bg-[#16a09e]/5 border-[#16a09e]/30' : 'bg-white border-gray-200'}`}>
                                                     <div className="flex justify-between items-start flex-col md:flex-row gap-4">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-3 mb-2 flex-wrap">
                                                                 <span className="font-bold text-[#0f3460] text-base">{noc.nombre}</span>
+                                                                <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider">#{noc.codigo}</span>
                                                                 {!isEvaluated && <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${group.bgBadge} uppercase tracking-wider`}>{group.title.split(' ')[0]}</span>}
                                                                 {isEvaluated && <span className="text-[10px] font-bold bg-[#16a09e] text-white px-2.5 py-1 rounded-md uppercase tracking-wide">Evaluado (Promedio: {evaluacionesNoc[noc.codigo].promedio})</span>}
                                                             </div>
@@ -431,18 +503,42 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                                         </div>
                                                         
                                                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                                                            <button 
+                                                                onClick={() => handleToggleNocPreview(noc.codigo)} 
+                                                                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-[#16a09e] hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition-colors flex items-center justify-center gap-2"
+                                                            >
+                                                                <FontAwesomeIcon icon={isPreviewing ? faEyeSlash : faEye} />
+                                                                {isPreviewing ? 'Ocultar detalles' : 'Ver detalles'}
+                                                            </button>
+                                                            
                                                             {isEvaluated ? (
                                                                 <>
-                                                                    <button onClick={() => openEvaluationModal(noc)} className="px-5 py-2.5 text-sm font-bold bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors w-full sm:w-auto">Editar</button>
-                                                                    <button onClick={() => handleDeleteEvaluation(noc.codigo)} className="px-5 py-2.5 text-sm font-bold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors w-full sm:w-auto">Borrar</button>
+                                                                    <button onClick={() => openEvaluationModal(noc)} className="px-5 py-2 text-sm font-bold bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors w-full sm:w-auto">Editar</button>
+                                                                    <button onClick={() => handleDeleteEvaluation(noc.codigo)} className="px-5 py-2 text-sm font-bold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors w-full sm:w-auto">Borrar</button>
                                                                 </>
                                                             ) : (
-                                                                <button onClick={() => openEvaluationModal(noc)} className="px-6 py-3 text-sm font-bold bg-[#16a09e] text-white rounded-xl hover:bg-[#128a88] shadow-sm transition-all w-full sm:w-auto">
+                                                                <button onClick={() => openEvaluationModal(noc)} className="px-6 py-2 text-sm font-bold bg-[#16a09e] text-white rounded-xl hover:bg-[#128a88] shadow-sm transition-all w-full sm:w-auto">
                                                                     Evaluar
                                                                 </button>
                                                             )}
                                                         </div>
                                                     </div>
+                                                    
+                                                    {/* PREVIEW DE INDICADORES NOC */}
+                                                    {isPreviewing && (
+                                                        <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm animate-fade-in">
+                                                            <p className="font-bold text-[#0f3460] mb-3 text-xs uppercase tracking-widest border-b border-gray-200 pb-2">Indicadores a evaluar:</p>
+                                                            {previewNocData[noc.codigo] ? (
+                                                                <ul className="list-disc pl-5 space-y-1.5 text-gray-600">
+                                                                    {previewNocData[noc.codigo].map((ind, i) => (
+                                                                        <li key={i}><span className="font-mono text-xs text-gray-400 mr-1">[{ind.codigo}]</span> {ind.texto}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="text-gray-400 text-xs flex items-center gap-2"><FontAwesomeIcon icon={faMagnifyingGlass} spin /> Cargando indicadores...</p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -452,34 +548,78 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                         </div>
                     </div>
 
+                    {/* SECCIÓN NIC */}
                     {nicsCalculados.length > 0 && (
-                        <div className="animate-fade-in pt-6">
+                        <div className="animate-fade-in pt-6 border-t border-gray-100">
                             <SectionTitle step="3">Intervenciones (NIC)</SectionTitle>
-                            <p className="text-sm text-gray-500 mb-6 md:ml-14">
-                                Seleccione las intervenciones que ejecutará.
-                            </p>
+                            
+                            <div className="md:ml-14 mb-4">
+                                <p className="text-sm text-gray-500 mb-3">Busque y previsualice las actividades antes de seleccionar las intervenciones que ejecutará.</p>
+                                {/* Buscador NIC */}
+                                <div className="relative w-full md:w-1/2">
+                                    <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Filtrar intervenciones por nombre o código..." 
+                                        value={nicSearchTerm} 
+                                        onChange={(e) => setNicSearchTerm(e.target.value)} 
+                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-[#16a09e] focus:bg-white transition-all"
+                                    />
+                                </div>
+                            </div>
                             
                             <div className="md:ml-14 space-y-6">
 
                                 {groupedNics.estrella && (
                                     <div>
                                         <h4 className="text-xs font-black uppercase tracking-wider mb-3 ml-2 text-amber-600">Intervención Principal</h4>
-                                        <div 
-                                            onClick={() => toggleNicSelection(groupedNics.estrella.codigo)}
-                                            className={`p-6 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden group
-                                                ${selectedNics.includes(groupedNics.estrella.codigo) 
-                                                    ? 'bg-[#16a09e]/5 border-[#16a09e] shadow-md' 
-                                                    : 'bg-amber-50/30 border-amber-300 hover:bg-amber-50'}`}
+                                        <div className={`p-5 md:p-6 rounded-2xl border-2 transition-all relative overflow-hidden group
+                                            ${selectedNics.includes(groupedNics.estrella.codigo) 
+                                                ? 'bg-[#16a09e]/5 border-[#16a09e] shadow-md' 
+                                                : 'bg-amber-50/30 border-amber-300'}`}
                                         >
-                                            <div className="flex justify-between items-center mb-2 gap-4">
-                                                <span className={`font-bold text-lg ${selectedNics.includes(groupedNics.estrella.codigo) ? 'text-[#0f3460]' : 'text-gray-900'}`}>
-                                                    {groupedNics.estrella.nombre}
-                                                </span>
-                                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${selectedNics.includes(groupedNics.estrella.codigo) ? 'border-[#16a09e] bg-[#16a09e]' : 'border-gray-300 bg-white'}`}>
-                                                    {selectedNics.includes(groupedNics.estrella.codigo) && <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />}
+                                            <div className="flex justify-between items-start md:items-center gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className={`font-bold text-lg ${selectedNics.includes(groupedNics.estrella.codigo) ? 'text-[#0f3460]' : 'text-gray-900'}`}>
+                                                            {groupedNics.estrella.nombre}
+                                                        </span>
+                                                        <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider">#{groupedNics.estrella.codigo}</span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 leading-relaxed">{groupedNics.estrella.definicion}</p>
+                                                </div>
+                                                <div className="flex flex-col gap-2 shrink-0 w-full md:w-auto">
+                                                    <button 
+                                                        onClick={() => toggleNicSelection(groupedNics.estrella.codigo)} 
+                                                        className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border-2 
+                                                            ${selectedNics.includes(groupedNics.estrella.codigo) ? 'bg-[#16a09e] border-[#16a09e] text-white' : 'bg-white border-gray-300 text-gray-600 hover:border-[#16a09e] hover:text-[#16a09e]'}`}
+                                                    >
+                                                        {selectedNics.includes(groupedNics.estrella.codigo) && <FontAwesomeIcon icon={faCheck} />}
+                                                        {selectedNics.includes(groupedNics.estrella.codigo) ? 'Seleccionado' : 'Seleccionar'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleToggleNicPreview(groupedNics.estrella.codigo)} 
+                                                        className="text-xs font-semibold text-gray-500 hover:text-[#16a09e] py-1.5 transition-colors flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <FontAwesomeIcon icon={previewNic === groupedNics.estrella.codigo ? faEyeSlash : faEye} />
+                                                        {previewNic === groupedNics.estrella.codigo ? 'Ocultar actividades' : 'Ver actividades'}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <p className="text-sm text-gray-600 leading-relaxed pr-8">{groupedNics.estrella.definicion}</p>
+                                            
+                                            {/* PREVIEW DE ACTIVIDADES NIC ESTRELLA */}
+                                            {previewNic === groupedNics.estrella.codigo && (
+                                                <div className="mt-4 p-4 bg-white rounded-xl border border-amber-200 shadow-inner text-sm animate-fade-in">
+                                                    <p className="font-bold text-[#0f3460] mb-3 text-xs uppercase tracking-widest border-b border-gray-100 pb-2">Actividades incluidas en esta intervención:</p>
+                                                    {previewNicData[groupedNics.estrella.codigo] ? (
+                                                        <ul className="list-disc pl-5 space-y-1.5 text-gray-600">
+                                                            {previewNicData[groupedNics.estrella.codigo].map((act, i) => <li key={i}>{act}</li>)}
+                                                        </ul>
+                                                    ) : (
+                                                        <p className="text-gray-400 text-xs flex items-center gap-2"><FontAwesomeIcon icon={faMagnifyingGlass} spin /> Cargando actividades...</p>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -491,27 +631,59 @@ const CarePlanBuilder = ({ patient, onCancel, showToast }) => {
                                 ].map((group, groupIdx) => group.data.length > 0 && (
                                     <div key={groupIdx}>
                                         <h4 className="text-xs font-black uppercase tracking-wider mb-3 ml-2 text-gray-500">{group.title}</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4">
                                             {group.data.map((nic) => {
                                                 const isSelected = selectedNics.includes(nic.codigo); 
+                                                const isPreviewing = previewNic === nic.codigo;
                                                 return (
                                                     <div 
                                                         key={nic.codigo} 
-                                                        onClick={() => toggleNicSelection(nic.codigo)}
-                                                        className={`p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group
-                                                            ${isSelected 
-                                                                ? 'bg-[#16a09e]/5 border-[#16a09e] border-2 shadow-sm' 
-                                                                : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                                                        className={`p-5 rounded-2xl border transition-all relative overflow-hidden group
+                                                            ${isSelected ? 'bg-[#16a09e]/5 border-[#16a09e] shadow-sm' : 'bg-white border-gray-200'}`}
                                                     >
-                                                        <div className="flex justify-between items-center mb-2 gap-4">
-                                                            <span className={`font-bold text-base ${isSelected ? 'text-[#0f3460]' : 'text-gray-800'}`}>
-                                                                {nic.nombre}
-                                                            </span>
-                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'border-[#16a09e] bg-[#16a09e]' : 'border-gray-300 bg-gray-50'}`}>
-                                                                {isSelected && <FontAwesomeIcon icon={faCheck} className="text-white text-[10px]" />}
+                                                        <div className="flex justify-between items-start md:items-center gap-4">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                                                    <span className={`font-bold text-base ${isSelected ? 'text-[#0f3460]' : 'text-gray-800'}`}>
+                                                                        {nic.nombre}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-black bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md uppercase tracking-wider">#{nic.codigo}</span>
+                                                                </div>
+                                                                <p className="text-sm text-gray-500 leading-relaxed pr-2">{nic.definicion}</p>
+                                                            </div>
+                                                            
+                                                            <div className="flex flex-col gap-2 shrink-0 w-full md:w-auto">
+                                                                <button 
+                                                                    onClick={() => toggleNicSelection(nic.codigo)} 
+                                                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border-2 
+                                                                        ${isSelected ? 'bg-[#16a09e] border-[#16a09e] text-white' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-[#16a09e] hover:text-[#16a09e]'}`}
+                                                                >
+                                                                    {isSelected && <FontAwesomeIcon icon={faCheck} />}
+                                                                    {isSelected ? 'Seleccionado' : 'Seleccionar'}
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleToggleNicPreview(nic.codigo)} 
+                                                                    className="text-xs font-semibold text-gray-500 hover:text-[#16a09e] py-1.5 transition-colors flex items-center justify-center gap-1.5"
+                                                                >
+                                                                    <FontAwesomeIcon icon={isPreviewing ? faEyeSlash : faEye} />
+                                                                    {isPreviewing ? 'Ocultar actividades' : 'Ver actividades'}
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                        <p className="text-sm text-gray-500 leading-relaxed pr-6">{nic.definicion}</p>
+
+                                                        {/* PREVIEW DE ACTIVIDADES NIC NORMALES */}
+                                                        {isPreviewing && (
+                                                            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm animate-fade-in">
+                                                                <p className="font-bold text-[#0f3460] mb-3 text-xs uppercase tracking-widest border-b border-gray-200 pb-2">Actividades incluidas en esta intervención:</p>
+                                                                {previewNicData[nic.codigo] ? (
+                                                                    <ul className="list-disc pl-5 space-y-1.5 text-gray-600">
+                                                                        {previewNicData[nic.codigo].map((act, i) => <li key={i}>{act}</li>)}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <p className="text-gray-400 text-xs flex items-center gap-2"><FontAwesomeIcon icon={faMagnifyingGlass} spin /> Cargando actividades...</p>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
