@@ -1,4 +1,4 @@
-# 3N — Nursing Care Plans & Hospital Intelligence
+# 3N — Nursing Care Plans
 
 > Plataforma SaaS de grado clínico y académico para la gestión integral de pacientes, elaboración de planes de cuidado estandarizados (NANDA·NIC·NOC) y análisis de inteligencia hospitalaria.
 
@@ -102,8 +102,8 @@ El sistema utiliza control de acceso basado en roles (ACL) a través de JWT:
 Asegúrate de tener Node.js ≥ 18 y MongoDB ejecutándose.
 
 ```bash
-git clone [https://github.com/tu-usuario/3n-nursing-care-plans.git](https://github.com/tu-usuario/3n-nursing-care-plans.git)
-cd 3n-nursing-care-plans
+git clone [https://github.com/PabloHernandez03/3N-Care-Plans.git](https://github.com/PabloHernandez03/3N-Care-Plans.git)
+cd 3N-Care-Plans
 
 # Instalar dependencias del frontend (raíz)
 npm install
@@ -118,7 +118,7 @@ npm install
 **En el Backend (`backend/.env`):**
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/3n-nursing
+MONGODB_URI=mongodb://localhost:27017/3N-Care-Plans
 JWT_SECRET=tu_super_secreto_seguro_aqui
 ```
 
@@ -137,7 +137,7 @@ cd backend
 npm run dev
 
 # Terminal 2: Iniciar Frontend
-npm run dev
+npm run dev:client
 ```
 
 La aplicación estará disponible en `http://localhost:5173`.
