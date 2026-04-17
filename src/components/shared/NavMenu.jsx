@@ -32,7 +32,7 @@ export default function NavMenu() {
     }, [active, showLabel]);
 
     const getNavLinkClass = (isActive) =>
-        `p-2 xl:p-4 rounded-full backdrop-blur-lg border border-white/20 shadow-lg transition-all duration-300
+        `p-2 xl:p-4 rounded-full backdrop-blur-lg border border-white/20 shadow-lg transition-all duration-300 print:hidden
         ${isActive
             ? 'bg-primario text-white border-primario'
             : 'bg-white/10 text-gray-500 hover:bg-white/20 hover:scale-105 hover:shadow-xl'}`;
