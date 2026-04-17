@@ -3,6 +3,10 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// 🔴 1. Importar los módulos necesarios para Socket.io
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
 import connectDB from "./config/db.js";
 import nandaRoutes from "./routes/nanda.routes.js";
 import nocRoutes from "./routes/noc.routes.js";
@@ -22,11 +26,50 @@ const __dirname  = path.dirname(__filename);
 
 const app = express();
 
+// 🔴 2. Crear el servidor HTTP nativo y montar Socket.io
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Ajusta esto a la URL de tu frontend en producción (ej. 'http://localhost:5173')
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        credentials: true
+    }
+});
+
+// 🔴 3. Lógica de conexiones en tiempo real (Salas por Plan de Cuidado)
+io.on('connection', (socket) => {
+    console.log(`🟢 Usuario conectado al Socket: ${socket.id}`);
+
+    // Cuando un usuario entra al detalle del plan
+    socket.on('join_careplan_room', (planId) => {
+        socket.join(planId);
+        console.log(`Usuario ${socket.id} se unió a la sala del plan: ${planId}`);
+    });
+
+    // Cuando un usuario sale de la pantalla
+    socket.on('leave_careplan_room', (planId) => {
+        socket.leave(planId);
+        console.log(`Usuario ${socket.id} abandonó la sala: ${planId}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`🔴 Usuario desconectado: ${socket.id}`);
+    });
+});
+
+// 🔴 4. ¡Hacer 'io' accesible para todas las rutas!
+// Esto permite que dentro de tus rutas (ej. guardando signos) puedas emitir eventos.
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
+
 app.use(cors());
 app.use(express.json()); 
 
 connectDB();
 
+// Tus rutas...
 app.use("/api/nanda",     nandaRoutes);
 app.use("/api/noc",       nocRoutes);
 app.use("/api/nic",       nicRoutes);
@@ -48,4 +91,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor puerto ${PORT}`));
+
+// 🔴 5. CAMBIO CLAVE: Usar 'httpServer.listen' en lugar de 'app.listen'
+httpServer.listen(PORT, () => {
+    console.log(`🚀 Servidor y WebSockets corriendo en el puerto ${PORT}`);
+});

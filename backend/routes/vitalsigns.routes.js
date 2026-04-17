@@ -1,5 +1,6 @@
 import express from "express";
 import VitalSigns from "../models/VitalSigns.js";
+import CarePlan from "../models/CarePlan.js"; // 🔴 IMPORTANTE: Necesitamos el plan para saber a qué sala emitir
 import authMiddleware from "../middleware/auth.js";
 
 const router = express.Router();
@@ -8,6 +9,23 @@ router.use(authMiddleware);
 // Helper
 const getOwnerId = (req) => req.institucionId || req.enfermeroId;
 
+// 🔴 NUEVA FUNCIÓN HELPER PARA SOCKETS
+const notificarSignos = async (req, pacienteId, ownerId) => {
+    try {
+        // 1. Buscamos el plan activo de este paciente (esa es nuestra "sala" de Socket)
+        const planActivo = await CarePlan.findOne({ pacienteId, estado: 'Activo' });
+        
+        if (planActivo) {
+            // 2. Traemos todos los signos ordenados (exactamente igual que tu GET)
+            const signosActualizados = await VitalSigns.find({ pacienteId, ownerId }).sort({ fecha: -1 });
+            
+            // 3. Emitimos el arreglo completo a la sala del plan
+            req.io.to(planActivo._id.toString()).emit('signos_actualizados', signosActualizados);
+        }
+    } catch (error) {
+        console.error("Error al emitir signos por socket:", error);
+    }
+};
 
 // ── POST / ─────────────────────────────
 router.post("/", async (req, res) => {
@@ -19,6 +37,9 @@ router.post("/", async (req, res) => {
       ownerId,
       registradoPor: req.enfermeroId
     });
+
+    // 🔴 AVISAR POR SOCKET (Creación)
+    await notificarSignos(req, req.body.pacienteId, ownerId);
 
     res.status(201).json(newVS);
   } catch (error) {
@@ -46,13 +67,11 @@ router.get("/paciente/:id", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
     try {
-        // ERROR AQUÍ: Era VitalSigns (con s)
         const signoActualizado = await VitalSigns.findByIdAndUpdate(
             req.params.id,
             { 
                 signos: req.body.signos, 
                 observaciones: req.body.observaciones,
-                // IMPORTANTE: Agregamos estos campos al esquema si quieres usarlos
                 editado: true, 
                 fechaEdicion: new Date()
             },
@@ -62,6 +81,9 @@ router.put("/:id", async (req, res) => {
         if (!signoActualizado) {
             return res.status(404).json({ error: "Registro no encontrado" });
         }
+
+        // 🔴 AVISAR POR SOCKET (Edición)
+        await notificarSignos(req, signoActualizado.pacienteId, getOwnerId(req));
 
         res.json(signoActualizado);
     } catch (error) {
