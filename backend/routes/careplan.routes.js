@@ -9,7 +9,11 @@ router.use(authMiddleware); // ← protege todas las rutas
 // Helper igual que en patients
 function filtroAcceso(req) {
     if (req.rol === 'superadmin') return {};
-    if (req.rol === 'jefe')       return { institucionId: req.institucionId };
+
+    if (req.institucionId) {
+        return { institucionId: req.institucionId };
+    }
+
     return { enfermeroId: req.enfermeroId };
 }
 
@@ -29,9 +33,9 @@ router.post("/", async (req, res) => {
 });
 
 // Agregar una nota de enfermería al plan
+// ── AGREGAR NOTA ──────────────────────────────────────────────
 router.post("/:id/notas", async (req, res) => {
     const { nota } = req.body;
-    
     if (!nota) return res.status(400).json({ error: "La nota no puede estar vacía" });
 
     try {
@@ -41,13 +45,16 @@ router.post("/:id/notas", async (req, res) => {
                 $push: { 
                     notasEnfermeria: {
                         nota,
-                        enfermeroId: req.enfermeroId, // Viene del token
+                        enfermeroId: req.enfermeroId,
                         fecha: new Date()
                     } 
                 } 
             },
             { new: true }
-        ).populate('notasEnfermeria.enfermeroId', 'identidad'); // Para traer el nombre del enfermero
+        ).populate('notasEnfermeria.enfermeroId', 'identidad');
+
+        // 🔴 EMITIR POR SOCKET: Avisar a todos los que estén viendo este plan
+        req.io.to(req.params.id).emit('nota_agregada', plan);
 
         res.json(plan);
     } catch (error) {
@@ -82,21 +89,18 @@ router.get("/patient/:id", async (req, res) => {
     }
 });
 
+// ── ACTUALIZAR PLAN (Evaluaciones NOC) ─────────────────────────
 router.put("/:id", async (req, res) => {
     try {
-        const plan = await CarePlan.findOne({
-            _id: req.params.id,
-            ...filtroAcceso(req)
-        });
+        const plan = await CarePlan.findOne({ _id: req.params.id, ...filtroAcceso(req) });
         if (!plan) return res.status(404).json({ error: "Plan no encontrado" });
 
-        // Si viene actualización de NOCs, preservar historial
+        // (Tu lógica de historial de NOCs se queda igual...)
         if (req.body.nocsEvaluados) {
             req.body.nocsEvaluados = req.body.nocsEvaluados.map(nocNuevo => {
                 const nocAnterior = plan.nocsEvaluados.find(n => n.codigo === nocNuevo.codigo);
                 if (!nocAnterior) return nocNuevo;
 
-                // Solo agregar al historial si el promedio cambió
                 const historialPrevio = nocAnterior.historial || [];
                 const cambio = nocAnterior.promedio !== nocNuevo.promedio;
 
@@ -104,21 +108,17 @@ router.put("/:id", async (req, res) => {
                     ...nocNuevo,
                     historial: cambio ? [
                         ...historialPrevio,
-                        {
-                            promedio:    nocAnterior.promedio,
-                            indicadores: nocAnterior.indicadores,
-                            fecha:       new Date()
-                        }
+                        { promedio: nocAnterior.promedio, indicadores: nocAnterior.indicadores, fecha: new Date() }
                     ] : historialPrevio
                 };
             });
         }
 
-        const planActualizado = await CarePlan.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true }
-        );
+        const planActualizado = await CarePlan.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        
+        // 🔴 EMITIR POR SOCKET: Alguien actualizó una evaluación
+        req.io.to(req.params.id).emit('plan_actualizado', planActualizado);
+
         res.json(planActualizado);
     } catch (error) {
         console.error(error);
@@ -133,21 +133,17 @@ router.patch("/:id/actividad", async (req, res) => {
         const plan = await CarePlan.findOne({ _id: req.params.id, ...filtroAcceso(req) });
         if (!plan) return res.status(404).json({ error: "Plan no encontrado" });
 
-        // Buscamos el NIC dentro del plan
         const nicIndex = plan.nicsSeleccionados.findIndex(n => n.codigo === nicCodigo);
         if (nicIndex === -1) return res.status(404).json({ error: "NIC no encontrado en este plan" });
 
-        // Buscamos si la actividad ya existe en el array de ese NIC
         const actividades = plan.nicsSeleccionados[nicIndex].actividades || [];
         const actIndex = actividades.findIndex(a => a.descripcion === descripcionActividad);
 
         if (actIndex > -1) {
-            // Si ya existe, actualizamos
             plan.nicsSeleccionados[nicIndex].actividades[actIndex].realizado = realizado;
             plan.nicsSeleccionados[nicIndex].actividades[actIndex].fechaRealizacion = realizado ? new Date() : null;
             plan.nicsSeleccionados[nicIndex].actividades[actIndex].enfermeroId = req.enfermeroId;
         } else {
-            // Si no existe (primera vez que se marca), la empujamos al array
             plan.nicsSeleccionados[nicIndex].actividades.push({
                 descripcion: descripcionActividad,
                 realizado: realizado,
@@ -157,6 +153,10 @@ router.patch("/:id/actividad", async (req, res) => {
         }
 
         await plan.save();
+
+        // 🔴 EMITIR POR SOCKET: Alguien marcó/desmarcó una actividad
+        req.io.to(req.params.id).emit('actividad_modificada', plan);
+
         res.json(plan);
     } catch (error) {
         console.error(error);

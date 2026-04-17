@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '@/utils/api';
+import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faArrowLeft, faUser, faStethoscope, faBullseye, faHandHoldingMedical, faChevronDown, faChevronUp, 
@@ -140,28 +141,94 @@ export default function CarePlanDetail({ plan, onBack, showToast }) {
     const [confirmandoActividad, setConfirmandoActividad] = useState(null); // { nicCodigo, descripcion, estadoActual }
 
     useEffect(() => {
+        // Quitamos el transports forzado para que Socket.io haga su handshake seguro (evita el error que te salió)
+        const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+
+        socket.on('connect', () => {
+            // Usamos plan._id (la prop original estática) en lugar del estado planData._id
+            socket.emit('join_careplan_room', plan._id);
+        });
+
+        socket.on('nota_agregada', (nuevoPlan) => {
+            setPlanData(nuevoPlan);
+            if (showToast) showToast("Un colega agregó una nueva nota", "info");
+        });
+
+        socket.on('plan_actualizado', (nuevoPlan) => {
+            setPlanData(nuevoPlan);
+            if (showToast) showToast("Evaluación actualizada en otro equipo", "info");
+        });
+
+        socket.on('actividad_modificada', (nuevoPlan) => {
+            setPlanData(nuevoPlan); // Esto actualizará la palomita verde al instante
+            
+            // Agregamos el Toast para que el enfermero sepa qué pasó
+            if (showToast) {
+                showToast("Un colega actualizó una intervención NIC", "info");
+            }
+        });
+
+        socket.on('signos_actualizados', (nuevosSignos) => {
+            setSignosVitales(nuevosSignos); // Actualiza la tabla al instante
+            if (showToast) showToast("Signos vitales registrados en otro equipo", "info");
+        });
+
+        return () => {
+            socket.emit('leave_careplan_room', plan._id);
+            socket.disconnect();
+        };
+    }, [plan._id]);
+
+    // 🔴 2. EFECTO DE CARGA DE DATOS (Rápido y a prueba de errores)
+    useEffect(() => {
+        let isMounted = true; // Seguro para evitar actualizar estado si el usuario le da "Atrás" rápido
+
         const fetchData = async () => {
             try {
-                const resPatient = await api.get(`/api/patients/${planData.pacienteId._id}`);
+                // Aseguramos obtener el ID correcto independientemente de si viene poblado o no
+                const pacienteIdStr = plan.pacienteId?._id || plan.pacienteId;
+
+                // Peticiones en paralelo (¡Ultra rápido!)
+                const [resPatient, resSignos] = await Promise.all([
+                    api.get(`/api/patients/${pacienteIdStr}`),
+                    api.get(`/api/vitalsigns/paciente/${pacienteIdStr}`)
+                ]);
+
+                if (!isMounted) return;
+
                 setPatientData(resPatient.data.patient || resPatient.data);
                 setClinicalRecord(resPatient.data.clinicalRecord || null);
                 setAdmissions(resPatient.data.admissions || []);
-
-                const resSignos = await api.get(`/api/vitalsigns/paciente/${planData.pacienteId._id}`);
                 setSignosVitales(resSignos.data || []);
 
-                const codigosNoc = planData.nocsEvaluados?.map(n => n.codigo) || [];
-                const nombresNoc = {};
-                for (const cod of codigosNoc) {
-                    const resNoc = await api.get(`/api/noc/${cod}`);
-                    nombresNoc[cod] = resNoc.data.nombre;
+                // Nombres de NOCs en paralelo
+                const codigosNoc = plan.nocsEvaluados?.map(n => n.codigo) || [];
+                if (codigosNoc.length > 0) {
+                    const promesasNoc = codigosNoc.map(cod => api.get(`/api/noc/${cod}`));
+                    const resultadosNoc = await Promise.all(promesasNoc);
+                    
+                    if (!isMounted) return;
+
+                    const nombresNoc = {};
+                    resultadosNoc.forEach((res, index) => {
+                        nombresNoc[codigosNoc[index]] = res.data.nombre;
+                    });
+                    setNocNames(nombresNoc);
                 }
-                setNocNames(nombresNoc);
-            } catch (error) { console.error("Error al cargar detalles:", error); }
-            finally { setLoading(false); }
+
+            } catch (error) { 
+                console.error("Error al cargar detalles:", error); 
+            } finally { 
+                if (isMounted) setLoading(false); 
+            }
         };
+        
         fetchData();
-    }, []);
+
+        return () => {
+            isMounted = false; // Limpiamos si el componente se desmonta antes de terminar
+        };
+    }, [plan.pacienteId]);
 
     const toggleNicActivities = async (codigoNic) => {
         if (nicActivities[codigoNic]) {
