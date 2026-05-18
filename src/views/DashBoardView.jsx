@@ -231,7 +231,7 @@ export default function DashboardView() {
     /* ── Stats calculados ── */
     const stats = useMemo(() => {
         const total   = patients.length;
-        const activos = withAdm.filter(p => p.ultimoIngreso?.estado === 'Activo').length;  
+        const activos = withAdm.filter(p => p.admission?.estado === 'Activo').length;  
         const planes = Array.isArray(carePlans) ? carePlans.length : 0;
 
         /* ── Hábitos ── */
