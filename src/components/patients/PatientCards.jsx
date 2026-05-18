@@ -105,7 +105,7 @@ function PatientCard({ p, onSelect, isSelected, onProfile, onDelete, onEdit }) {
   const tipoSangre  = p.demograficos?.tipoSangre || null;
   const sexo        = p.demograficos?.sexo || p.sexo || '';
   const edad        = calcularEdad(p.demograficos?.fechaNacimiento);
-  const diagnostico = p.ultimoIngreso?.ingreso?.diagnosticoMedico || '—';
+  const diagnostico = p.admission?.ingreso?.diagnosticoMedico || '—';
   const bloodClass  = bloodColors[tipoSangre] || 'bg-gray-100 text-gray-500';
 
   return (
