@@ -127,7 +127,7 @@ export default function DashboardJefe() {
     /* ── Stats calculados locales (Demografía) ── */
     const stats = useMemo(() => {
         const total = rawStats.patients.length;
-        const activos = rawStats.withAdm.filter(p => p.ultimoIngreso?.estado === 'Activo').length;
+        const activos = rawStats.withAdm.filter(p => p.admission?.estado === 'Activo').length;
         
         // Sexo
         const sexoMap = { M: 0, F: 0, N: 0 };
