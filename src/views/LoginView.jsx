@@ -44,7 +44,7 @@ const LoginView = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleLogin = async (e) => {
+const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -56,17 +56,16 @@ const LoginView = () => {
             let response;
             
             // --- CASCADA DE AUTENTICACIÓN POR ROLES ---
-            
-            // 1. Intentar como Enfermero Operativo
             try {
+                // 1. Intentar como Enfermero Operativo
                 response = await axios.post(`${apiBase}/api/enfermero/login`, creds);
             } catch (err) {
-                // 2. Si falla, intentar como Jefe de Enfermería (Elena)
+                // 2. Si falla, intentar como Jefe de Enfermería
                 if (err.response && (err.response.status === 404 || err.response.status === 401)) {
                     try {
                         response = await axios.post(`${apiBase}/api/jefe/login`, creds);
                     } catch (errJefe) {
-                        // 3. Si falla, intentar como Admin (Marcus Fenix)
+                        // 3. Si falla, intentar como Admin
                         if (errJefe.response && (errJefe.response.status === 404 || errJefe.response.status === 401)) {
                             response = await axios.post(`${apiBase}/api/admin/login`, creds);
                         } else {
@@ -78,27 +77,43 @@ const LoginView = () => {
                 }
             }
 
-            // --- VALIDACIÓN Y PERSISTENCIA ---
-            if (response.data?.user && response.data?.token) {
-                sessionStorage.setItem('user', JSON.stringify(response.data.user));
-                sessionStorage.setItem('token', response.data.token); 
-                
-                const rol = response.data.user.cuenta?.rol;
+            // --- EXTRACCIÓN ROBUSTA DE DATOS ---
+            // Dependiendo de tu backend, el objeto puede venir como .user, .admin o .jefe
+            const responseData = response.data;
+            const userData = responseData.user || responseData.admin || responseData.jefe;
+            const token = responseData.token;
 
-                // Redirección basada en el Rol
-                if (rol === 'admin') {
+            // --- VALIDACIÓN Y PERSISTENCIA ---
+            if (userData && token) {
+                sessionStorage.setItem('user', JSON.stringify(userData));
+                sessionStorage.setItem('token', token); 
+                
+                // Buscar el rol, ya sea anidado en 'cuenta.rol' o directo en la raíz 'rol'
+                const rol = userData.cuenta?.rol || userData.rol;
+
+                // Redirección súper segura basada en el rol o en la URL que respondió exitosamente
+                const loginUrl = response.config.url; // Nos dice qué endpoint fue el exitoso
+
+                if (rol === 'admin' || rol === 'superadmin' || loginUrl.includes('/admin/login')) {
                     navigate('/admin-dashboard'); 
                 } else {
-                    // Jefes y Enfermeros van al dashboard clínico (el NavMenu filtrará sus opciones)
-                    navigate('/dashboard');
+                    navigate('/dashboard'); // Jefes y Enfermeros
                 }
             } else {
-                throw new Error("El servidor no respondió con los datos de sesión correctos.");
+                throw new Error("El servidor no devolvió la estructura esperada (token y datos de usuario).");
             }
 
         } catch (err) {
-            const mensajeError = err.response?.data?.error || 'Credenciales incorrectas. Intenta de nuevo.';
-            setError(mensajeError);
+            console.error("Detalle del error de login:", err);
+            
+            // Manejo de errores visuales en pantalla
+            if (err.message === "El servidor no devolvió la estructura esperada (token y datos de usuario).") {
+                setError("Problema con el formato de respuesta del servidor.");
+            } else {
+                // Buscamos el mensaje de error del backend, o ponemos uno genérico
+                const mensajeError = err.response?.data?.error || err.response?.data?.message || 'Credenciales incorrectas. Intenta de nuevo.';
+                setError(mensajeError);
+            }
         } finally {
             setLoading(false); 
         }

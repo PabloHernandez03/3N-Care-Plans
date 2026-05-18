@@ -1,16 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
 import api from '@/utils/api'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, faUserCheck, faUserXmark, 
     faSpinner, faUserPlus, faShieldHalved
 } from '@fortawesome/free-solid-svg-icons';
+import StaffModal from '@/components/admin/StaffModal.jsx';
 
 const Card = ({ children, className = '' }) => (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm ${className}`}>
-        {children}
-    </div>
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm ${className}`}>{children}</div>
 );
 
 const SectionHeader = ({ icon, title, colorClass = "bg-[#0f3460]" }) => (
@@ -42,13 +40,14 @@ function StatCard({ icon, label, value, color }) {
     );
 }
 
-const StaffTable = ({ data, emptyMessage, statusColor }) => (
+// 🔴 MODIFICADO PARA ACEPTAR onEditClick
+const StaffTable = ({ data, emptyMessage, statusColor, onEditClick }) => (
     <div className="overflow-x-auto">
         <table className="w-full text-left">
             <thead>
                 <tr className="text-[10px] text-gray-400 uppercase border-b border-gray-100">
-                    <th className="pb-2 font-semibold">Enfermero</th>
-                    <th className="pb-2 font-semibold">Área / Turno</th>
+                    <th className="pb-2 font-semibold">Personal</th>
+                    <th className="pb-2 font-semibold">Rol / Área / Turno</th>
                     <th className="pb-2 text-right">Acción</th>
                 </tr>
             </thead>
@@ -60,14 +59,15 @@ const StaffTable = ({ data, emptyMessage, statusColor }) => (
                         <tr key={enf._id} className="text-sm hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-2">
                                 <p className="font-bold text-gray-700">{enf.identidad?.nombre} {enf.identidad?.apellido_paterno}</p>
-                                <p className="text-[10px] text-gray-400 uppercase">{enf.identidad?.cedula_profesional || 'SIN CÉDULA'}</p>
+                                <p className="text-[10px] text-gray-400">{enf.cuenta?.correo_electronico || 'Sin correo'}</p>
                             </td>
                             <td className="py-3 px-2">
-                                <p className="text-xs text-gray-600">{enf.datos_laborales?.area_asignada || 'No asignada'}</p>
-                                <p className="text-[10px] font-bold text-blue-500 uppercase">{enf.datos_laborales?.turno || 'N/A'}</p>
+                                <p className="text-xs font-bold text-[#0f3460] uppercase">{enf.cuenta?.rol === 'jefe' ? 'JEFE(A) ENFERMERÍA' : 'ENFERMERO(A)'}</p>
+                                <p className="text-[10px] text-gray-500 uppercase">{enf.datos_laborales?.area_asignada || 'General'} - {enf.datos_laborales?.turno}</p>
                             </td>
                             <td className="py-3 px-2 text-right">
-                                <button className={`text-xs font-bold hover:underline ${statusColor}`}>
+                                {/* 🔴 CONECTADO AL BOTÓN GESTIONAR */}
+                                <button onClick={() => onEditClick(enf)} className={`text-xs font-bold hover:underline ${statusColor}`}>
                                     Gestionar
                                 </button>
                             </td>
@@ -84,18 +84,33 @@ export default function AdminDashboardView() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        api.get('/api/enfermero/todos')
+    // 🔴 ESTADOS DEL MODAL
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedStaff, setSelectedStaff] = useState(null);
+
+    const loadStaff = () => {
+        setLoading(true);
+        // NOTA: Asegúrate de que este endpoint traiga tanto a enfermeros como a jefes. 
+        api.get('/api/admin/staff') // Ajusta esto si tu endpoint de traer a todos se llama distinto
             .then(res => {
                 setEnfermeros(res.data || []);
                 setLoading(false);
             })
             .catch(err => {
-                console.error("Error en el Dashboard de Admin:", err);
+                console.error("Error en el Dashboard:", err);
                 setError("No se pudieron cargar los datos del personal.");
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        loadStaff();
     }, []);
+
+    const handleOpenModal = (staff = null) => {
+        setSelectedStaff(staff);
+        setIsModalOpen(true);
+    };
 
     const { activos, inactivos } = useMemo(() => {
         return {
@@ -104,7 +119,7 @@ export default function AdminDashboardView() {
         };
     }, [enfermeros]);
 
-    if (loading) return (
+    if (loading && enfermeros.length === 0) return (
         <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-400">
             <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mr-3" />
             <span className="text-sm font-semibold uppercase tracking-widest">Cargando Panel Administrativo...</span>
@@ -124,9 +139,10 @@ export default function AdminDashboardView() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Panel de Administración</h1>
-                    <p className="text-sm text-gray-400">Marcus Fenix | Control de Personal Hospitalario</p>
+                    <p className="text-sm text-gray-400">Control de Personal Hospitalario</p>
                 </div>
-                <button className="bg-[#0f3460] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:bg-blue-900 transition-all flex items-center justify-center gap-2">
+                {/* 🔴 BOTÓN CONECTADO AL ALTA */}
+                <button onClick={() => handleOpenModal(null)} className="bg-[#0f3460] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:bg-blue-900 transition-all flex items-center justify-center gap-2">
                     <FontAwesomeIcon icon={faUserPlus} />
                     Alta de Personal
                 </button>
@@ -145,6 +161,7 @@ export default function AdminDashboardView() {
                         data={activos} 
                         emptyMessage="No hay personal activo registrado." 
                         statusColor="text-green-600"
+                        onEditClick={handleOpenModal} // 🔴 PASAMOS LA FUNCIÓN
                     />
                 </Card>
 
@@ -154,9 +171,19 @@ export default function AdminDashboardView() {
                         data={inactivos} 
                         emptyMessage="No hay personal inactivo." 
                         statusColor="text-red-600"
+                        onEditClick={handleOpenModal} // 🔴 PASAMOS LA FUNCIÓN
                     />
                 </Card>
             </div>
+
+            {/* 🔴 EL MODAL FLOTANTE */}
+            <StaffModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                staffData={selectedStaff} 
+                onSaveSuccess={loadStaff} 
+                showToast={(msg) => alert(msg)} // Si tienes un sistema de Toasts real, cámbialo aquí
+            />
         </div>
     );
 }

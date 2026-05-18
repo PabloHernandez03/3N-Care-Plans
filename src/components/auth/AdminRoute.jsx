@@ -12,9 +12,11 @@ export default function AdminRoute() {
         return <Navigate to="/" replace />;
     }
 
-    const rolUsuario = user?.cuenta?.rol;
+    // Extracción segura del rol (por si viene anidado en 'cuenta' o directo en la raíz)
+    const rolUsuario = user?.cuenta?.rol || user?.rol;
 
-    if (rolUsuario !== 'admin') {
+    // 🔴 LA SOLUCIÓN: Dejar pasar tanto a 'admin' como a 'superadmin'
+    if (rolUsuario !== 'admin' && rolUsuario !== 'superadmin') {
         console.warn(`Acceso denegado a Admin: ${rolUsuario}. Redirigiendo según perfil.`);
         
         // REDIRECCIÓN INTELIGENTE:
@@ -24,5 +26,6 @@ export default function AdminRoute() {
         return <Navigate to="/dashboard" replace />; // Kevin va a la suya
     }
 
+    // Si es admin o superadmin, renderiza la ruta (lo deja pasar)
     return <Outlet />;
 }
