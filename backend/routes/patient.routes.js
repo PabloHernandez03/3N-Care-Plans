@@ -4,7 +4,7 @@ import Patient from "../models/Patient.js";
 import ClinicalRecord from "../models/ClinicalRecord.js";
 import Admission from "../models/Admission.js";
 import CarePlan from "../models/CarePlan.js";
-import authMiddleware from "../middleware/auth.js"; // ← nuevo
+import authMiddleware from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -50,11 +50,13 @@ router.get("/with-admission", async (req, res) => {
 
         const result = patients.map(p => ({
             ...p.toJSON(),
-            ultimoIngreso: ingresoMap[p._id.toString()] || null
+            // 🟢 Cambiado a 'admission' para acoplarse directamente al frontend sin romper el código base
+            admission: ingresoMap[p._id.toString()] || null 
         }));
 
         res.json(result);
-    } catch {
+    } catch (error) {
+        console.error("Error en with-admission:", error);
         res.status(500).json({ error: "Error obteniendo pacientes" });
     }
 });
@@ -62,7 +64,6 @@ router.get("/with-admission", async (req, res) => {
 // ── GET /:id ──────────────────────────────────────────────────────────────
 router.get("/:id", async (req, res) => {
     try {
-        // Verificar que el paciente pertenece al enfermero/institución
         const patient = await Patient.findOne({
             _id: req.params.id,
             ...filtroAcceso(req)
@@ -86,27 +87,23 @@ router.post("/", async (req, res) => {
         const ownerId = req.institucionId || req.enfermeroId;
         const curpUpper = req.body.curp.toUpperCase();
 
-        // 1. 🛡️ BARRERA DE SEGURIDAD: Checar si la CURP ya existe para este enfermero/institución
         const pacienteExistente = await Patient.findOne({ curp: curpUpper, ownerId });
         
         if (pacienteExistente) {
-            // Mandamos código 400 (Bad Request) con un mensaje claro para el frontend
             return res.status(400).json({ 
                 error: `Ya existe un paciente registrado con la CURP ${curpUpper} en tu cuenta.` 
             });
         }
 
-        // 2. Aquí creas al Paciente (ya sabemos que es seguro)
         const newPatient = await Patient.create({
             nombre: req.body.nombre,
-            curp: curpUpper, // Lo guardamos siempre en mayúsculas por consistencia
+            curp: curpUpper,
             demograficos: req.body.demograficos,
             ownerId: ownerId,
             enfermeroId: req.enfermeroId,
             institucionId: req.institucionId
         });
 
-        // 3. Creas el Expediente Clínico (ClinicalRecord)
         const newRecord = await ClinicalRecord.create({
             pacienteId: newPatient._id,
             antecedentes: req.body.antecedentes,
@@ -116,7 +113,6 @@ router.post("/", async (req, res) => {
             redCuidados: req.body.redCuidados
         });
 
-        // 4. Creas el ingreso asegurando todos los IDs
         const newAdmission = await Admission.create({
             pacienteId: newPatient._id,
             ingreso: req.body.ingreso,
@@ -125,7 +121,6 @@ router.post("/", async (req, res) => {
             ownerId: ownerId
         });
 
-        // 5. Retornas el éxito al frontend
         res.status(201).json({
             patient: newPatient,
             clinicalRecord: newRecord,
@@ -198,7 +193,7 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
-// ── Stats endpoints (sin cambios en lógica, pero respetan filtro) ─────────
+// ── Stats endpoints ───────────────────────────────────────────────────────
 router.get("/stats/expedientes", async (req, res) => {
     try {
         const patients = await Patient.find(filtroAcceso(req)).select('_id');

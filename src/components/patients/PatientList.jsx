@@ -29,7 +29,12 @@ function sortPatients(patients, sort, dir) {
         case 'reciente':
         default:
             return arr.sort((a, b) => {
-                const cmp = new Date(b.fechaRegistro || 0) - new Date(a.fechaRegistro || 0);
+                // Extraemos la fecha de ingreso estructurada por el backend agregando un fallback seguro
+                const fechaA = a.admission?.ingreso?.fecha ? new Date(a.admission.ingreso.fecha) : new Date(0);
+                const fechaB = b.admission?.ingreso?.fecha ? new Date(b.admission.ingreso.fecha) : new Date(0);
+                
+                // Ordenar del ingreso más fresco/nuevo al más antiguo
+                const cmp = fechaB - fechaA;
                 return asc ? cmp : -cmp;
             });
     }
@@ -47,7 +52,9 @@ export default function PatientList({ showToast }) {
 
     useEffect(() => {
         api.get('/api/patients/with-admission')
-            .then(res => setPatients(res.data))
+            .then(res => {
+                setPatients(res.data);
+            })
             .catch(err => console.error("Error al cargar pacientes:", err));
     }, []);
 
