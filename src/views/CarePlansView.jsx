@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheckCircle, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 import CarePlanList from '@/components/care-plans/CarePlanList';
@@ -15,7 +15,26 @@ export default function CarePlansView() {
     
     const [toast, setToast] = useState(null);
 
+    // 🟢 EL TRUCO MAESTRO: Scroll automático e instantáneo cada vez que cambia la vista
+    useEffect(() => {
+        const resetearScroll = () => {
+            window.scrollTo(0, 0); // Resetea el scroll global del navegador
+
+            // Respaldo por si el scroll se queda atrapado dentro de las secciones de tu AppLayout
+            const mainContent = document.querySelector("section") || document.querySelector("main");
+            if (mainContent) {
+                mainContent.scrollTop = 0;
+            }
+        };
+
+        // Retraso de 10ms para permitir que React monte el nuevo componente en el DOM
+        const timer = setTimeout(resetearScroll, 10);
+
+        return () => clearTimeout(timer);
+    }, [activeView]); // 👈 Reacciona a CUALQUIER cambio de pantalla
+
     const showToast = (message, type = 'success') => {
+        toast && setToast(null); // Limpiar toast anterior si existe
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
